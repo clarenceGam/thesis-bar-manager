@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Star, MessageCircle, Send, Loader2 } from 'lucide-react';
 import { reviewApi } from '../api/reviewApi';
 import { format } from 'date-fns';
+import { parseUTC } from '../utils/dateUtils';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
@@ -89,7 +90,7 @@ const Reviews = () => {
                 </div>
                 <div>
                   <p className="font-medium text-white">{r.first_name} {r.last_name}</p>
-                  <p className="text-xs" style={{ color: '#666' }}>{r.review_date ? format(new Date(r.review_date), 'MMM d, yyyy') : ''}</p>
+                  <p className="text-xs" style={{ color: '#666' }}>{r.review_date ? format(parseUTC(r.review_date), 'MMM d, yyyy') : ''}</p>
                 </div>
               </div>
               {renderStars(r.rating)}

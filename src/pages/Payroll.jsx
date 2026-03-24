@@ -3,6 +3,7 @@ import { Wallet, Play, Loader2, Calendar, X, Eye, CheckCircle, ChevronDown, Chev
 import { payrollApi } from '../api/payrollApi';
 import { usePermission } from '../hooks/usePermission';
 import { format } from 'date-fns';
+import { parseUTC } from '../utils/dateUtils';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ConfirmModal from '../components/common/ConfirmModal';
@@ -117,8 +118,8 @@ const Payroll = () => {
   const handleDownloadSlipPDF = (slip) => {
     if (!slip) return;
     const empName = `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Employee';
-    const periodStart = slip.period_start ? format(new Date(slip.period_start), 'MMMM d, yyyy') : '';
-    const periodEnd = slip.period_end ? format(new Date(slip.period_end), 'MMMM d, yyyy') : '';
+    const periodStart = slip.period_start ? format(parseUTC(slip.period_start), 'MMMM d, yyyy') : '';
+    const periodEnd = slip.period_end ? format(parseUTC(slip.period_end), 'MMMM d, yyyy') : '';
     const deductions = [
       slip.bir_deduction > 0 ? { label: 'BIR Withholding Tax', amount: Number(slip.bir_deduction) } : null,
       slip.sss_deduction > 0 ? { label: 'SSS Contribution', amount: Number(slip.sss_deduction) } : null,
@@ -178,8 +179,8 @@ const Payroll = () => {
   const handleDownloadPDF = () => {
     if (!runDetails || !selectedRun) return;
     const items = runDetails.items || [];
-    const periodStart = selectedRun.period_start ? format(new Date(selectedRun.period_start), 'MMM d, yyyy') : '';
-    const periodEnd = selectedRun.period_end ? format(new Date(selectedRun.period_end), 'MMM d, yyyy') : '';
+    const periodStart = selectedRun.period_start ? format(parseUTC(selectedRun.period_start), 'MMM d, yyyy') : '';
+    const periodEnd = selectedRun.period_end ? format(parseUTC(selectedRun.period_end), 'MMM d, yyyy') : '';
     const totalNet = items.reduce((s, i) => s + Number(i.net_pay || 0), 0);
     const totalGross = items.reduce((s, i) => s + Number(i.gross_pay || 0), 0);
     const totalDeductions = items.reduce((s, i) => s + Number(i.total_deductions || i.deductions || 0), 0);
@@ -224,7 +225,7 @@ const Payroll = () => {
       </div>
       <div style="text-align:right;">
         <div class="badge">FINALIZED</div>
-        <div style="font-size:12px;color:#888;margin-top:6px;">${runDetails.run?.finalized_at ? format(new Date(runDetails.run.finalized_at), 'MMM d, yyyy h:mm a') : ''}</div>
+        <div style="font-size:12px;color:#888;margin-top:6px;">${runDetails.run?.finalized_at ? format(parseUTC(runDetails.run.finalized_at), 'MMM d, yyyy h:mm a') : ''}</div>
       </div>
     </div>
     <div class="summary">
@@ -291,7 +292,7 @@ const Payroll = () => {
                     onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                   >
                     <td className="table-cell">
-                      {p.period_start && format(new Date(p.period_start), 'MMM d')} – {p.period_end && format(new Date(p.period_end), 'MMM d, yyyy')}
+                      {p.period_start && format(parseUTC(p.period_start), 'MMM d')} – {p.period_end && format(parseUTC(p.period_end), 'MMM d, yyyy')}
                     </td>
                     <td className="table-cell text-center">{p.days_present || 0}</td>
                     <td className="table-cell text-center">₱{Number(p.daily_rate || 0).toLocaleString()}</td>
@@ -317,7 +318,7 @@ const Payroll = () => {
                 <div>
                   <h3 className="font-bold text-white">Payslip Details</h3>
                   <p className="text-xs mt-0.5" style={{ color: '#888' }}>
-                    {selectedSlip.period_start && format(new Date(selectedSlip.period_start), 'MMM d')} – {selectedSlip.period_end && format(new Date(selectedSlip.period_end), 'MMM d, yyyy')}
+                    {selectedSlip.period_start && format(parseUTC(selectedSlip.period_start), 'MMM d')} – {selectedSlip.period_end && format(parseUTC(selectedSlip.period_end), 'MMM d, yyyy')}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -473,12 +474,12 @@ const Payroll = () => {
                 >
                   <td className="table-cell font-medium">#{r.id}</td>
                   <td className="table-cell">
-                    {r.period_start && format(new Date(r.period_start), 'MMM d')} - {r.period_end && format(new Date(r.period_end), 'MMM d, yyyy')}
+                    {r.period_start && format(parseUTC(r.period_start), 'MMM d')} - {r.period_end && format(parseUTC(r.period_end), 'MMM d, yyyy')}
                   </td>
                   <td className="table-cell">
                     <span className={r.status === 'finalized' ? 'badge-success' : 'badge-warning'}>{r.status}</span>
                   </td>
-                  <td className="table-cell">{r.created_at ? format(new Date(r.created_at), 'MMM d, yyyy') : '—'}</td>
+                  <td className="table-cell">{r.created_at ? format(parseUTC(r.created_at), 'MMM d, yyyy') : '—'}</td>
                   <td className="table-cell text-right">
                     <button onClick={(e) => { e.stopPropagation(); handleViewDetails(r); }} className="p-1.5 rounded-lg transition-colors" style={{ color: '#CC0000' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(204,0,0,0.1)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
                       <Eye className="w-4 h-4" />
@@ -500,7 +501,7 @@ const Payroll = () => {
               <div>
                 <h3 className="font-bold text-white">Payroll Run #{selectedRun.id}</h3>
                 <p className="text-sm" style={{ color: '#888' }}>
-                  {selectedRun.period_start && format(new Date(selectedRun.period_start), 'MMM d')} - {selectedRun.period_end && format(new Date(selectedRun.period_end), 'MMM d, yyyy')}
+                  {selectedRun.period_start && format(parseUTC(selectedRun.period_start), 'MMM d')} - {selectedRun.period_end && format(parseUTC(selectedRun.period_end), 'MMM d, yyyy')}
                 </p>
               </div>
               <button onClick={() => setShowDetailsModal(false)} className="p-1 rounded-lg transition-colors" style={{ color: '#666' }} onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; }} onMouseLeave={(e) => { e.currentTarget.style.color = '#666'; }}><X className="w-5 h-5" /></button>
@@ -638,7 +639,7 @@ const Payroll = () => {
                     onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                   >
                     <td className="table-cell">
-                      {p.period_start && format(new Date(p.period_start), 'MMM d')} – {p.period_end && format(new Date(p.period_end), 'MMM d, yyyy')}
+                      {p.period_start && format(parseUTC(p.period_start), 'MMM d')} – {p.period_end && format(parseUTC(p.period_end), 'MMM d, yyyy')}
                     </td>
                     <td className="table-cell text-center">{p.days_present || 0}</td>
                     <td className="table-cell text-center">₱{Number(p.daily_rate || 0).toLocaleString()}</td>

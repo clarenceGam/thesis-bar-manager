@@ -3,6 +3,7 @@ import { Plus, Edit2, Trash2, ToggleLeft, ToggleRight, X, Loader2, Percent } fro
 import { promotionApi } from '../api/promotionApi';
 import { getUploadUrl } from '../api/apiClient';
 import { format } from 'date-fns';
+import { parseUTC } from '../utils/dateUtils';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ConfirmModal from '../components/common/ConfirmModal';
@@ -108,7 +109,7 @@ const Promotions = () => {
               </div>
               {(p.valid_from || p.valid_until) && (
                 <p className="text-xs mt-2" style={{ color: '#555' }}>
-                  {p.valid_from && format(new Date(p.valid_from), 'MMM d')} — {p.valid_until && format(new Date(p.valid_until), 'MMM d, yyyy')}
+                  {p.valid_from && format(parseUTC(p.valid_from), 'MMM d')} — {p.valid_until && format(parseUTC(p.valid_until), 'MMM d, yyyy')}
                 </p>
               )}
               <div className="flex items-center justify-between mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>

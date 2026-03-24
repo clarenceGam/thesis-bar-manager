@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Bell, Search, ChevronDown, GitBranch, X, CheckCheck, Megaphone } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { parseUTC } from '../../utils/dateUtils';
 import useAuthStore from '../../stores/authStore';
 import useBranchStore from '../../stores/branchStore';
 import { socialApi } from '../../api/socialApi';
@@ -273,7 +274,7 @@ const Header = () => {
                           <p className="text-sm font-semibold text-white">{notif.title || 'Notification'}</p>
                           <p className="text-sm mt-0.5" style={{ color: '#888' }}>{notif.message}</p>
                           <p className="text-xs mt-1" style={{ color: '#555' }}>
-                            {notif.time_ago || formatDistanceToNow(new Date(notif.created_at), { addSuffix: true })}
+                            {notif.time_ago || formatDistanceToNow(parseUTC(notif.created_at), { addSuffix: true })}
                           </p>
                         </div>
                       </div>

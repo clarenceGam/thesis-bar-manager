@@ -3,6 +3,7 @@ import { Monitor, ShoppingCart, DollarSign, TrendingUp, Search, Eye, X, Loader2 
 import { posApi } from '../api/posApi';
 import { usePermission } from '../hooks/usePermission';
 import { format } from 'date-fns';
+import { parseUTC } from '../utils/dateUtils';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
@@ -161,7 +162,7 @@ const POS = () => {
                       <td className="table-cell">
                         <span className={o.status === 'completed' ? 'badge-success' : o.status === 'cancelled' ? 'badge-danger' : 'badge-warning'}>{o.status}</span>
                       </td>
-                      <td className="table-cell">{o.created_at ? format(new Date(o.created_at), 'MMM d, h:mm a') : '—'}</td>
+                      <td className="table-cell">{o.created_at ? format(parseUTC(o.created_at), 'MMM d, h:mm a') : '—'}</td>
                       <td className="table-cell text-right">
                         <button onClick={() => viewOrder(o.id)} className="p-1.5 rounded-lg transition-colors" style={{ color: '#666' }} onMouseEnter={(e) => { e.currentTarget.style.color = '#CC0000'; }} onMouseLeave={(e) => { e.currentTarget.style.color = '#666'; }}><Eye className="w-4 h-4" /></button>
                       </td>

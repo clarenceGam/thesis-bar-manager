@@ -5,6 +5,7 @@ import { eventApi } from '../api/eventApi';
 import { getUploadUrl } from '../api/apiClient';
 import useAuthStore from '../stores/authStore';
 import { format } from 'date-fns';
+import { parseUTC } from '../utils/dateUtils';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ConfirmModal from '../components/common/ConfirmModal';
@@ -86,8 +87,8 @@ const Social = () => {
 
   const safeFormat = (dateValue, pattern) => {
     if (!dateValue) return '—';
-    const date = new Date(dateValue);
-    if (Number.isNaN(date.getTime())) return '—';
+    const date = parseUTC(dateValue);
+    if (!date || Number.isNaN(date.getTime())) return '—';
     return format(date, pattern);
   };
 

@@ -3,6 +3,7 @@ import { Search, Check, X as XIcon, Ban, CalendarCheck, Clock, Users, Hash, Cred
 import { reservationApi } from '../api/reservationApi';
 import { usePermission } from '../hooks/usePermission';
 import { format } from 'date-fns';
+import { parseUTC } from '../utils/dateUtils';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ConfirmModal from '../components/common/ConfirmModal';
@@ -65,7 +66,7 @@ const ReservationDetail = ({ detail, onClose }) => (
             <p className="text-xs" style={{ color: '#aaa' }}>Deposit paid: <span className="font-medium" style={{ color: '#4ade80' }}>₱{Number(detail.deposit_amount).toLocaleString()}</span></p>
           )}
           <p className="text-xs" style={{ color: '#ccc' }}>
-            {detail.reservation_date ? format(new Date(detail.reservation_date), 'MMM d, yyyy') : '—'}
+            {detail.reservation_date ? format(parseUTC(detail.reservation_date), 'MMM d, yyyy') : '—'}
             {detail.reservation_time ? ` at ${detail.reservation_time}` : ''}
           </p>
           <p className="text-xs" style={{ color: '#666' }}>{detail.party_size} guest{detail.party_size !== 1 ? 's' : ''}</p>
@@ -132,7 +133,7 @@ const ReservationDetail = ({ detail, onClose }) => (
             {detail.payment.paid_at && (
               <div className="flex justify-between">
                 <span className="text-xs" style={{ color: '#888' }}>Paid at</span>
-                <span className="text-sm" style={{ color: '#ccc' }}>{format(new Date(detail.payment.paid_at), 'MMM d, yyyy h:mm a')}</span>
+                <span className="text-sm" style={{ color: '#ccc' }}>{format(parseUTC(detail.payment.paid_at), 'MMM d, yyyy h:mm a')}</span>
               </div>
             )}
             {detail.payment.reference_id && (
@@ -352,7 +353,7 @@ const Reservations = () => {
                   <td className="table-cell">
                     <div className="flex items-center gap-1.5">
                       <CalendarCheck className="w-3.5 h-3.5" style={{ color: '#555' }} />
-                      <span>{r.reservation_date ? format(new Date(r.reservation_date), 'MMM d, yyyy') : '—'}</span>
+                      <span>{r.reservation_date ? format(parseUTC(r.reservation_date), 'MMM d, yyyy') : '—'}</span>
                     </div>
                     {r.reservation_time && (
                       <div className="flex items-center gap-1.5 text-xs mt-0.5" style={{ color: '#666' }}>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
+import { parseUTC } from '../utils/dateUtils';
 import { Heart, MessageCircle, Users, PartyPopper, Plus, Edit2, Trash2, X, Loader2, Search, Image } from 'lucide-react';
 import { eventApi } from '../api/eventApi';
 import { socialApi } from '../api/socialApi';
@@ -405,7 +406,7 @@ const Events = () => {
                   <div className="flex items-start justify-between mb-2">
                     <div>
                       <p className="text-sm" style={{ color: '#ccc' }}>{post.content || post.text}</p>
-                      <p className="text-xs mt-1" style={{ color: '#555' }}>{post.created_at ? format(new Date(post.created_at), 'MMM d, yyyy • h:mm a') : ''}</p>
+                      <p className="text-xs mt-1" style={{ color: '#555' }}>{post.created_at ? format(parseUTC(post.created_at), 'MMM d, yyyy • h:mm a') : ''}</p>
                     </div>
                     {can('events_delete') && (
                       <button onClick={() => handleDeletePost(post.id)} className="p-1.5 rounded-lg transition-colors flex-shrink-0" style={{ color: '#666' }} onMouseEnter={(e) => { e.currentTarget.style.color = '#ff6666'; }} onMouseLeave={(e) => { e.currentTarget.style.color = '#666'; }}>
@@ -466,7 +467,7 @@ const Events = () => {
               </div>
               {ev.description && <p className="text-sm mb-3 line-clamp-2" style={{ color: '#888' }}>{ev.description}</p>}
               <div className="text-xs mb-3" style={{ color: '#555' }}>
-                {ev.event_date && <span>{format(new Date(ev.event_date), 'MMM d, yyyy')}</span>}
+                {ev.event_date && <span>{format(parseUTC(ev.event_date), 'MMM d, yyyy')}</span>}
                 {ev.start_time && <span> • {ev.start_time}</span>}
               </div>
               <div className="flex items-center justify-between">
@@ -528,7 +529,7 @@ const Events = () => {
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
                         <p style={{ color: '#666' }}>Date</p>
-                        <p className="font-medium text-white">{detailModal.event_date ? format(new Date(detailModal.event_date), 'MMM d, yyyy') : '—'}</p>
+                        <p className="font-medium text-white">{detailModal.event_date ? format(parseUTC(detailModal.event_date), 'MMM d, yyyy') : '—'}</p>
                       </div>
                       <div>
                         <p style={{ color: '#666' }}>Time</p>
@@ -568,7 +569,7 @@ const Events = () => {
                             <div key={c.id} className="rounded-lg p-3" style={{ background: '#161616' }}>
                               <div className="flex items-center justify-between mb-1">
                                 <span className="text-xs font-medium" style={{ color: '#ccc' }}>{c.first_name} {c.last_name}</span>
-                                <span className="text-xs" style={{ color: '#555' }}>{c.created_at ? format(new Date(c.created_at), 'MMM d, h:mm a') : ''}</span>
+                                <span className="text-xs" style={{ color: '#555' }}>{c.created_at ? format(parseUTC(c.created_at), 'MMM d, h:mm a') : ''}</span>
                               </div>
                               <p className="text-sm mb-2" style={{ color: '#aaa' }}>{c.comment}</p>
                               {c.replies && c.replies.length > 0 && (
