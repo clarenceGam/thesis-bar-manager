@@ -4,6 +4,7 @@ import { documentApi } from '../api/documentApi';
 import { staffApi } from '../api/staffApi';
 import { usePermission } from '../hooks/usePermission';
 import { format } from 'date-fns';
+import { parseUTC } from '../utils/dateUtils';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
@@ -151,7 +152,7 @@ const Documents = () => {
                   </td>
                   <td className="table-cell"><span className={typeColor(d.doc_type)}>{d.doc_type}</span></td>
                   <td className="table-cell">{d.employee_first_name ? `${d.employee_first_name} ${d.employee_last_name}` : `#${d.employee_user_id || '—'}`}</td>
-                  <td className="table-cell">{d.created_at ? format(new Date(d.created_at), 'MMM d, yyyy') : '—'}</td>
+                  <td className="table-cell">{d.created_at ? format(parseUTC(d.created_at), 'MMM d, yyyy') : '—'}</td>
                   <td className="table-cell text-right">
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => handleView(d)} className="p-1.5 rounded-lg transition-colors" style={{ color: '#666' }} onMouseEnter={(e) => { e.currentTarget.style.color = '#CC0000'; }} onMouseLeave={(e) => { e.currentTarget.style.color = '#666'; }} title="View"><Eye className="w-4 h-4" /></button>

@@ -3,6 +3,7 @@ import { Plus, Check, X as XIcon, Loader2, CalendarOff, Eye } from 'lucide-react
 import { leaveApi } from '../api/leaveApi';
 import { usePermission } from '../hooks/usePermission';
 import { format } from 'date-fns';
+import { parseUTC } from '../utils/dateUtils';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
@@ -99,8 +100,8 @@ const Leaves = () => {
                 >
                   {can('leave_approve') && <td className="table-cell font-medium">{l.first_name ? `${l.first_name} ${l.last_name}` : `#${l.employee_user_id}`}</td>}
                   <td className="table-cell"><span className="badge-info">{l.leave_type}</span></td>
-                  <td className="table-cell">{l.start_date ? format(new Date(l.start_date), 'MMM d, yyyy') : '—'}</td>
-                  <td className="table-cell">{l.end_date ? format(new Date(l.end_date), 'MMM d, yyyy') : '—'}</td>
+                  <td className="table-cell">{l.start_date ? format(parseUTC(l.start_date), 'MMM d, yyyy') : '—'}</td>
+                  <td className="table-cell">{l.end_date ? format(parseUTC(l.end_date), 'MMM d, yyyy') : '—'}</td>
                   <td className="table-cell">{l.days || calculateDays(l.start_date, l.end_date) || '—'}</td>
                   <td className="table-cell max-w-[200px] truncate" style={{ color: '#888' }}>{l.reason || '—'}</td>
                   <td className="table-cell"><span className={statusColors[l.status] || 'badge-gray'}>{l.status}</span></td>
@@ -200,11 +201,11 @@ const Leaves = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="label">Start Date</label>
-                  <p className="text-white font-medium">{detailModal.start_date ? format(new Date(detailModal.start_date), 'MMM d, yyyy') : '—'}</p>
+                  <p className="text-white font-medium">{detailModal.start_date ? format(parseUTC(detailModal.start_date), 'MMM d, yyyy') : '—'}</p>
                 </div>
                 <div>
                   <label className="label">End Date</label>
-                  <p className="text-white font-medium">{detailModal.end_date ? format(new Date(detailModal.end_date), 'MMM d, yyyy') : '—'}</p>
+                  <p className="text-white font-medium">{detailModal.end_date ? format(parseUTC(detailModal.end_date), 'MMM d, yyyy') : '—'}</p>
                 </div>
               </div>
               <div>

@@ -3,6 +3,7 @@ import { DollarSign, TrendingUp, TrendingDown, Wallet, CreditCard, BarChart2, Ca
 import { financialsApi } from '../api/financialsApi';
 import { posApi } from '../api/posApi';
 import { format } from 'date-fns';
+import { parseUTC } from '../utils/dateUtils';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
@@ -373,7 +374,7 @@ const Financials = () => {
                             {order.status}
                           </span>
                         </td>
-                        <td className="table-cell text-sm">{order.created_at ? format(new Date(order.created_at), 'MMM d, yyyy h:mm a') : '—'}</td>
+                        <td className="table-cell text-sm">{order.created_at ? format(parseUTC(order.created_at), 'MMM d, yyyy h:mm a') : '—'}</td>
                         <td className="table-cell text-right">
                           <button
                             onClick={() => viewOrderDetails(order)}
@@ -501,7 +502,7 @@ const Financials = () => {
                             {p.reservation_txn
                               ? <span className="text-xs font-mono" style={{ color: '#aaa' }}>{p.reservation_txn}</span>
                               : <span style={{ color: '#444' }}>—</span>}
-                            {p.reservation_date && <p className="text-xs" style={{ color: '#555' }}>{format(new Date(p.reservation_date), 'MMM d, yyyy')}</p>}
+                            {p.reservation_date && <p className="text-xs" style={{ color: '#555' }}>{format(parseUTC(p.reservation_date), 'MMM d, yyyy')}</p>}
                           </td>
                           <td className="table-cell text-sm text-white">₱{Number(p.gross_amount).toLocaleString()}</td>
                           <td className="table-cell text-xs" style={{ color: '#ff9999' }}>
@@ -514,7 +515,7 @@ const Financials = () => {
                             <span className="text-xs font-semibold capitalize" style={{ color: payoutStatusColor }}>{p.status}</span>
                           </td>
                           <td className="table-cell text-xs" style={{ color: '#888' }}>
-                            {p.processed_at ? format(new Date(p.processed_at), 'MMM d, yyyy') : '—'}
+                            {p.processed_at ? format(parseUTC(p.processed_at), 'MMM d, yyyy') : '—'}
                           </td>
                           <td className="table-cell">
                             {p.payout_reference

@@ -597,7 +597,7 @@ const Payroll = () => {
                   <div className="flex items-center justify-between pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                     <div className="flex items-center gap-2" style={{ color: '#4ade80' }}>
                       <CheckCircle className="w-5 h-5" />
-                      <span className="font-medium">Payroll Finalized on {runDetails.run.finalized_at && format(new Date(runDetails.run.finalized_at), 'MMM d, yyyy')}</span>
+                      <span className="font-medium">Payroll Finalized on {runDetails.run.finalized_at && format(parseUTC(runDetails.run.finalized_at), 'MMM d, yyyy')}</span>
                     </div>
                     <button onClick={handleDownloadPDF} className="btn-primary flex items-center gap-2">
                       <Download className="w-4 h-4" /> Download Payroll
@@ -665,7 +665,7 @@ const Payroll = () => {
               <div>
                 <h3 className="font-bold text-white">Payslip Details</h3>
                 <p className="text-xs mt-0.5" style={{ color: '#888' }}>
-                  {selectedSlip.period_start && format(new Date(selectedSlip.period_start), 'MMM d')} – {selectedSlip.period_end && format(new Date(selectedSlip.period_end), 'MMM d, yyyy')}
+                  {selectedSlip.period_start && format(parseUTC(selectedSlip.period_start), 'MMM d')} – {selectedSlip.period_end && format(parseUTC(selectedSlip.period_end), 'MMM d, yyyy')}
                 </p>
               </div>
               <div className="flex items-center gap-2">

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ScrollText, Search } from 'lucide-react';
 import { auditApi } from '../api/auditApi';
 import { format } from 'date-fns';
+import { parseUTC } from '../utils/dateUtils';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const AuditLogs = () => {
@@ -123,7 +124,7 @@ const AuditLogs = () => {
                   onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
                   onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                 >
-                  <td className="table-cell text-xs">{l.created_at ? format(new Date(l.created_at), 'MMM d, yyyy h:mm a') : '—'}</td>
+                  <td className="table-cell text-xs">{l.created_at ? format(parseUTC(l.created_at), 'MMM d, yyyy h:mm a') : '—'}</td>
                   <td className="table-cell">{l.first_name ? `${l.first_name} ${l.last_name}` : `User #${l.user_id}`}</td>
                   <td className="table-cell"><span className="badge-info">{formatAction(l.action)}</span></td>
                   <td className="table-cell">{formatEntity(l.entity, l.entity_id)}</td>
