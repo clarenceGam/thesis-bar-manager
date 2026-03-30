@@ -85,10 +85,24 @@ export const NAV_ITEMS = [
     permissions: ['menu_view'],
   },
   {
+    key: 'inventory-requests',
+    label: 'Inventory Requests',
+    path: '/inventory-requests',
+    icon: 'ClipboardCheck',
+    permissions: [],
+  },
+  {
     key: 'menu',
     label: 'Menu',
     path: '/menu',
     icon: 'UtensilsCrossed',
+    permissions: ['menu_view'],
+  },
+  {
+    key: 'packages',
+    label: 'Packages',
+    path: '/packages',
+    icon: 'Package',
     permissions: ['menu_view'],
   },
   {
@@ -145,6 +159,13 @@ export const NAV_ITEMS = [
     label: 'Deduction Settings',
     path: '/deduction-settings',
     icon: 'Settings',
+    permissions: ['payroll_create'],
+  },
+  {
+    key: 'payroll-settings',
+    label: 'Payroll Settings',
+    path: '/payroll-settings',
+    icon: 'DollarSign',
     permissions: ['payroll_create'],
   },
   {

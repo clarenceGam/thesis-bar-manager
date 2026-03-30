@@ -109,7 +109,7 @@ const Hero = () => {
             className="text-gray-400 font-body text-lg md:text-xl mb-10 max-w-xl leading-relaxed hero-fade-in"
             style={{ animationDelay: '200ms' }}
           >
-            The all-in-one platform built for bar owners who are serious about operations, staff, and growth.
+            The all-in-one platform built for Cavite bar owners who are serious about operations, staff, and growth.
           </p>
 
           {/* CTA Buttons */}
@@ -133,6 +133,20 @@ const Hero = () => {
               onClick={(e) => { e.preventDefault(); document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' }); }}
             >
               See How It Works
+            </a>
+          </div>
+
+          {/* Customer redirect */}
+          <div className="customer-redirect-hero hero-fade-in" style={{ animationDelay: '350ms', color: '#666666', fontSize: '0.82rem', marginTop: '12px' }}>
+            Looking to discover bars tonight?{' '}
+            <a
+              href="https://thepartygoers.fun"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold transition-colors duration-150 hover:underline"
+              style={{ color: '#E8001E' }}
+            >
+              Visit thepartygoers.fun →
             </a>
           </div>
 

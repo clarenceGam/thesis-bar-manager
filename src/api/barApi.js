@@ -55,4 +55,10 @@ export const barApi = {
 
   deleteComment: (type, commentId) =>
     apiClient.delete(`/owner/bar/comments/${type}/${commentId}`),
+
+  getTaxConfig: () =>
+    apiClient.get('/owner/tax-config', { silentError: true }),
+
+  updateTaxConfig: (data) =>
+    apiClient.put('/owner/tax-config', data),
 };

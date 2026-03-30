@@ -9,6 +9,8 @@ import { barApi } from '../api/barApi';
 import { dssApi } from '../api/dssApi';
 import useAuthStore from '../stores/authStore';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import ConfirmModal from '../components/common/ConfirmModal';
+import { registrationReviewApi } from '../api/registrationReviewApi';
 
 const StatCard = ({ icon: Icon, label, value, sub, color, to }) => (
   <Link to={to || '#'} className="card transition-all duration-200 group" style={{ cursor: 'pointer' }}
@@ -48,8 +50,13 @@ const Dashboard = () => {
   const [dss, setDss] = useState(null);
   const [dssLoading, setDssLoading] = useState(false);
   const [dssUpdatedAt, setDssUpdatedAt] = useState(null);
+  const [pendingRegs, setPendingRegs] = useState([]);
+  const [pendingRegsLoading, setPendingRegsLoading] = useState(false);
+  const [regAction, setRegAction] = useState(null);
+  const [regProcessing, setRegProcessing] = useState(false);
 
   const can = (perms) => hasPermission(Array.isArray(perms) ? perms : [perms]);
+  const isSuperAdmin = user?.role === 'super_admin' || user?.role === 'admin';
 
   const loadDss = useCallback(async () => {
     if (!can('analytics_bar_view')) return;
@@ -84,6 +91,23 @@ const Dashboard = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const loadPendingRegs = useCallback(async () => {
+    if (!isSuperAdmin) return;
+    setPendingRegsLoading(true);
+    try {
+      const { data } = await registrationReviewApi.list({ status: 'pending_admin_approval', limit: 5, page: 1, silentError: true });
+      setPendingRegs(data?.data?.registrations || []);
+    } catch (err) {
+      console.error('Pending registrations fetch error:', err);
+    } finally {
+      setPendingRegsLoading(false);
+    }
+  }, [isSuperAdmin]);
+
+  useEffect(() => {
+    loadPendingRegs();
+  }, [loadPendingRegs]);
+
   if (loading) return <LoadingSpinner />;
 
   return (
@@ -102,6 +126,70 @@ const Dashboard = () => {
           <PartyPopper className="w-12 h-12 text-white/20" />
         </div>
       </div>
+
+      {isSuperAdmin && (
+        <div className="card">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-bold text-white">Pending Bar Registrations</h3>
+              <p className="text-sm mt-0.5" style={{ color: '#888' }}>
+                Accounts waiting for admin approval after email verification.
+              </p>
+            </div>
+            <button onClick={loadPendingRegs} className="btn-secondary flex items-center gap-2 text-sm" disabled={pendingRegsLoading}>
+              <RefreshCw className={`w-4 h-4 ${pendingRegsLoading ? 'animate-spin' : ''}`} /> Refresh
+            </button>
+          </div>
+
+          {pendingRegsLoading ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="w-5 h-5 animate-spin" style={{ color: '#CC0000' }} />
+            </div>
+          ) : pendingRegs.length === 0 ? (
+            <div className="text-center py-10">
+              <CheckCircle2 className="w-10 h-10 mx-auto mb-3" style={{ color: '#22c55e' }} />
+              <p className="text-sm" style={{ color: '#888' }}>No pending registrations to review.</p>
+            </div>
+          ) : (
+            <div className="space-y-3 mt-4">
+              {pendingRegs.map((r) => (
+                <div key={r.id} className="rounded-xl p-4" style={{ background: '#0f0f0f', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-white truncate">{r.business_name}</p>
+                      <p className="text-xs mt-1" style={{ color: '#888' }}>
+                        {r.owner_first_name} {r.owner_middle_name ? `${r.owner_middle_name} ` : ''}{r.owner_last_name} · {r.owner_email}
+                      </p>
+                      <p className="text-xs mt-1" style={{ color: '#555' }}>
+                        Submitted {new Date(r.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => setRegAction({ type: 'approve', reg: r })}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+                        style={{ background: 'rgba(34,197,94,0.15)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.3)' }}
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => setRegAction({ type: 'reject', reg: r })}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+                        style={{ background: 'rgba(204,0,0,0.1)', color: '#ff6666', border: '1px solid rgba(204,0,0,0.3)' }}
+                      >
+                        <X className="w-4 h-4" />
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Stats Grid — only show cards the user has permissions for */}
       {can(['reservation_view', 'bar_details_view', 'financials_view', 'events_view']) && (
@@ -306,6 +394,37 @@ const Dashboard = () => {
           </Link>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={Boolean(regAction)}
+        onClose={() => { if (!regProcessing) setRegAction(null); }}
+        onConfirm={async () => {
+          if (!regAction) return;
+          setRegProcessing(true);
+          try {
+            if (regAction.type === 'approve') {
+              await registrationReviewApi.approve(regAction.reg.id);
+            } else {
+              await registrationReviewApi.reject(regAction.reg.id, null);
+            }
+            setRegAction(null);
+            await loadPendingRegs();
+          } catch (err) {
+            console.error(err);
+          } finally {
+            setRegProcessing(false);
+          }
+        }}
+        loading={regProcessing}
+        title={regAction?.type === 'approve' ? 'Approve Registration' : 'Reject Registration'}
+        message={
+          regAction?.type === 'approve'
+            ? 'Approve this bar registration and activate the bar owner account?'
+            : 'Reject this bar registration?'
+        }
+        confirmText={regAction?.type === 'approve' ? 'Approve' : 'Reject'}
+        type={regAction?.type === 'approve' ? 'info' : 'danger'}
+      />
     </div>
   );
 };

@@ -1,6 +1,6 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# backend (deployed separately, not needed for Netlify)
+# backend
 thesis-backend/
 
 # dependencies

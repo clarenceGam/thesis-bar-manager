@@ -13,6 +13,12 @@ export const reservationApi = {
   cancel: (id) =>
     apiClient.patch(`/owner/reservations/${id}/status`, { action: 'cancel' }),
 
+  checkIn: (id) =>
+    apiClient.patch(`/owner/reservations/${id}/status`, { action: 'check_in' }),
+
+  complete: (id) =>
+    apiClient.patch(`/owner/reservations/${id}/status`, { action: 'complete' }),
+
   lookup: (txn) =>
     apiClient.get(`/reservations/lookup/${encodeURIComponent(txn)}`),
 };

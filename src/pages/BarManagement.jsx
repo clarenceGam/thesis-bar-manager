@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, Upload, MapPin, Clock, Loader2 } from 'lucide-react';
+import { Save, Upload, MapPin, Clock, Loader2, Receipt, FileText, Users } from 'lucide-react';
 import { barApi } from '../api/barApi';
 import { getUploadUrl } from '../api/apiClient';
 import toast from 'react-hot-toast';
@@ -16,6 +16,7 @@ const BarManagement = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({});
+  const [staffTypes, setStaffTypes] = useState([]);
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [mapFullscreen, setMapFullscreen] = useState(false);
   const [mapReady, setMapReady] = useState(false);
@@ -23,8 +24,20 @@ const BarManagement = () => {
   const mapInstanceRef = useRef(null);
   const markerRef = useRef(null);
 
+  // Tax configuration state
+  const [taxConfig, setTaxConfig] = useState({
+    tin: '',
+    is_bir_registered: false,
+    tax_type: 'NON_VAT',
+    tax_rate: 0,
+    tax_mode: 'EXCLUSIVE',
+  });
+  const [taxLoading, setTaxLoading] = useState(true);
+  const [taxSaving, setTaxSaving] = useState(false);
+
   useEffect(() => {
     loadBar();
+    loadTaxConfig();
   }, []);
 
   const loadBar = async () => {
@@ -33,9 +46,75 @@ const BarManagement = () => {
       const d = data.data || data;
       setBar(d);
       setForm(d);
+      // Parse staff_types from JSON
+      if (d.staff_types) {
+        try {
+          const parsed = typeof d.staff_types === 'string' ? JSON.parse(d.staff_types) : d.staff_types;
+          setStaffTypes(Array.isArray(parsed) ? parsed : []);
+        } catch {
+          setStaffTypes([]);
+        }
+      } else {
+        setStaffTypes([]);
+      }
     } catch { /* handled by interceptor */ } finally {
       setLoading(false);
     }
+  };
+
+  const loadTaxConfig = async () => {
+    try {
+      const { data } = await barApi.getTaxConfig();
+      const d = data.data || data;
+      setTaxConfig({
+        tin: d.tin || '',
+        is_bir_registered: Boolean(d.is_bir_registered),
+        tax_type: d.tax_type || 'NON_VAT',
+        tax_rate: Number(d.tax_rate || 0),
+        tax_mode: d.tax_mode || 'EXCLUSIVE',
+      });
+    } catch { /* may not exist yet */ } finally {
+      setTaxLoading(false);
+    }
+  };
+
+  const handleTaxSave = async () => {
+    setTaxSaving(true);
+    try {
+      const payload = {
+        tin: taxConfig.tin || null,
+        is_bir_registered: taxConfig.is_bir_registered,
+        tax_type: taxConfig.tax_type,
+        tax_rate: Number(taxConfig.tax_rate),
+        tax_mode: taxConfig.tax_mode,
+      };
+      await barApi.updateTaxConfig(payload);
+      toast.success('Tax configuration updated!');
+      loadTaxConfig();
+    } catch { /* handled by interceptor */ } finally {
+      setTaxSaving(false);
+    }
+  };
+
+  const handleTaxChange = (field, value) => {
+    setTaxConfig((prev) => ({ ...prev, [field]: value }));
+  };
+
+  // Compute tax preview for display
+  const computeTaxPreview = (rawSubtotal) => {
+    const taxType = (taxConfig.tax_type || 'NON_VAT').toUpperCase();
+    const taxRate = Number(taxConfig.tax_rate || 0);
+    const taxMode = (taxConfig.tax_mode || 'EXCLUSIVE').toUpperCase();
+    const s = Number(rawSubtotal);
+    if (taxType === 'NON_VAT' || taxRate === 0) {
+      return { net: s, tax: 0, total: s };
+    }
+    if (taxMode === 'EXCLUSIVE') {
+      const tax = parseFloat((s * taxRate / 100).toFixed(2));
+      return { net: s, tax, total: parseFloat((s + tax).toFixed(2)) };
+    }
+    const tax = parseFloat((s - s / (1 + taxRate / 100)).toFixed(2));
+    return { net: parseFloat((s - tax).toFixed(2)), tax, total: s };
   };
 
   const reverseGeocode = async (lat, lng) => {
@@ -130,8 +209,10 @@ const BarManagement = () => {
         }).setView([lat, lng], 13);
         mapInstanceRef.current = map;
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; OpenStreetMap contributors',
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+          subdomains: 'abcd',
+          maxZoom: 20,
         }).addTo(map);
 
         L.rectangle(CAVITE_BOUNDS, {
@@ -221,7 +302,8 @@ const BarManagement = () => {
       await barApi.updateDetails({ 
         name, description, address, city, state, zip_code, phone, contact_number, email, website, category, price_range, latitude, longitude, 
         accept_cash_payment, accept_online_payment, accept_gcash, minimum_reservation_deposit, 
-        gcash_number, gcash_account_name, 
+        gcash_number, gcash_account_name,
+        staff_types: staffTypes,
         ...hours 
       });
       toast.success('Bar details updated!');
@@ -229,6 +311,12 @@ const BarManagement = () => {
     } catch { /* handled */ } finally {
       setSaving(false);
     }
+  };
+
+  const toggleStaffType = (type) => {
+    setStaffTypes(prev => 
+      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
+    );
   };
 
   const handleImageUpload = async (type) => {
@@ -372,6 +460,29 @@ const BarManagement = () => {
           </div>
         </div>
 
+        {/* Staff Types Section */}
+        <div className="mt-6 p-4 rounded-lg" style={{ background: 'rgba(204,0,0,0.06)', border: '1px solid rgba(204,0,0,0.2)' }}>
+          <h4 className="font-semibold text-white mb-2 flex items-center gap-2">
+            <Users className="w-5 h-5" style={{ color: '#CC0000' }} />
+            Staff Types
+          </h4>
+          <p className="text-xs mb-3" style={{ color: '#888' }}>Select the types of staff present at your bar. This will be displayed to customers.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {['DJ', 'Live Band', 'Host / Emcee', 'Security', 'Waitstaff'].map((type) => (
+              <label key={type} className="flex items-center gap-2 p-3 rounded-lg cursor-pointer transition-colors" style={{ background: staffTypes.includes(type) ? 'rgba(204,0,0,0.15)' : 'rgba(255,255,255,0.03)', border: staffTypes.includes(type) ? '1px solid rgba(204,0,0,0.3)' : '1px solid rgba(255,255,255,0.06)' }}>
+                <input 
+                  type="checkbox" 
+                  checked={staffTypes.includes(type)} 
+                  onChange={() => toggleStaffType(type)}
+                  className="w-4 h-4 rounded" 
+                  style={{ accentColor: '#CC0000' }}
+                />
+                <span className="text-sm font-medium" style={{ color: staffTypes.includes(type) ? '#fff' : '#ccc' }}>{type}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
         <button onClick={handleSave} disabled={saving} className="btn-primary mt-6 flex items-center gap-2">
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
           {saving ? 'Saving...' : 'Save Changes'}
@@ -455,6 +566,176 @@ const BarManagement = () => {
             style={bar.reservation_mode === 'auto_accept' ? { background: '#CC0000', color: '#fff' } : { background: '#1a1a1a', color: '#888', border: '1px solid rgba(255,255,255,0.08)' }}
           >Auto Accept</button>
         </div>
+      </div>
+
+      {/* Tax Configuration (BIR Compliance) */}
+      <div className="card">
+        <div className="flex items-center gap-2 mb-4">
+          <Receipt className="w-5 h-5" style={{ color: '#CC0000' }} />
+          <h3 className="text-lg font-bold text-white">Tax Configuration</h3>
+        </div>
+        <p className="text-xs mb-4" style={{ color: '#888' }}>
+          Configure your bar's BIR tax settings. These affect how tax is computed on customer web orders and official receipts.
+        </p>
+
+        {taxLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-5 h-5 animate-spin" style={{ color: '#CC0000' }} />
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* BIR Registration Toggle */}
+              <div className="md:col-span-2">
+                <div className="rounded-xl p-4 flex items-center justify-between" style={{ background: '#161616', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div>
+                    <p className="font-medium text-white text-sm">BIR Registered</p>
+                    <p className="text-xs mt-0.5" style={{ color: '#888' }}>Enable if your bar is registered with the Bureau of Internal Revenue</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleTaxChange('is_bir_registered', !taxConfig.is_bir_registered)}
+                    className="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out"
+                    style={{ background: taxConfig.is_bir_registered ? '#CC0000' : '#333' }}
+                  >
+                    <span
+                      className="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                      style={{ transform: taxConfig.is_bir_registered ? 'translateX(20px)' : 'translateX(0)' }}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {/* TIN */}
+              <div>
+                <label className="label">TIN (Tax Identification Number)</label>
+                <input
+                  value={taxConfig.tin || ''}
+                  onChange={(e) => handleTaxChange('tin', e.target.value)}
+                  className="input-field"
+                  placeholder="123-456-789-000"
+                  maxLength={20}
+                />
+                <p className="text-xs mt-1" style={{ color: '#555' }}>Format: 123-456-789-000</p>
+              </div>
+
+              {/* Tax Type */}
+              <div>
+                <label className="label">Tax Type</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleTaxChange('tax_type', 'NON_VAT');
+                      handleTaxChange('tax_rate', 0);
+                    }}
+                    className="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                    style={taxConfig.tax_type === 'NON_VAT'
+                      ? { background: '#CC0000', color: '#fff' }
+                      : { background: '#1a1a1a', color: '#888', border: '1px solid rgba(255,255,255,0.08)' }}
+                  >
+                    NON-VAT
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleTaxChange('tax_type', 'VAT');
+                      handleTaxChange('tax_rate', 12);
+                    }}
+                    className="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                    style={taxConfig.tax_type === 'VAT'
+                      ? { background: '#CC0000', color: '#fff' }
+                      : { background: '#1a1a1a', color: '#888', border: '1px solid rgba(255,255,255,0.08)' }}
+                  >
+                    VAT (12%)
+                  </button>
+                </div>
+              </div>
+
+              {/* Tax Rate */}
+              <div>
+                <label className="label">Tax Rate (%)</label>
+                <input
+                  type="number"
+                  value={taxConfig.tax_rate}
+                  onChange={(e) => handleTaxChange('tax_rate', e.target.value)}
+                  className="input-field"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  placeholder="12.00"
+                />
+                <p className="text-xs mt-1" style={{ color: '#555' }}>e.g. 12 for 12% VAT</p>
+              </div>
+
+              {/* Tax Mode */}
+              <div>
+                <label className="label">Tax Mode</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleTaxChange('tax_mode', 'EXCLUSIVE')}
+                    className="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                    style={taxConfig.tax_mode === 'EXCLUSIVE'
+                      ? { background: '#CC0000', color: '#fff' }
+                      : { background: '#1a1a1a', color: '#888', border: '1px solid rgba(255,255,255,0.08)' }}
+                  >
+                    Exclusive
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleTaxChange('tax_mode', 'INCLUSIVE')}
+                    className="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                    style={taxConfig.tax_mode === 'INCLUSIVE'
+                      ? { background: '#CC0000', color: '#fff' }
+                      : { background: '#1a1a1a', color: '#888', border: '1px solid rgba(255,255,255,0.08)' }}
+                  >
+                    Inclusive
+                  </button>
+                </div>
+                <p className="text-xs mt-1" style={{ color: '#555' }}>
+                  {taxConfig.tax_mode === 'EXCLUSIVE'
+                    ? 'Tax is added on top of the price'
+                    : 'Tax is already included in the price'}
+                </p>
+              </div>
+            </div>
+
+            {/* Tax Preview */}
+            {taxConfig.tax_type === 'VAT' && Number(taxConfig.tax_rate) > 0 && (
+              <div className="mt-4 rounded-xl p-4" style={{ background: '#161616', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <div className="flex items-center gap-2 mb-3">
+                  <FileText className="w-4 h-4" style={{ color: '#CC0000' }} />
+                  <p className="text-sm font-medium text-white">Tax Preview (₱100 sample order)</p>
+                </div>
+                {(() => {
+                  const preview = computeTaxPreview(100);
+                  return (
+                    <div className="grid grid-cols-3 gap-3 text-center">
+                      <div className="rounded-lg p-3" style={{ background: '#0d0d0d' }}>
+                        <p className="text-xs" style={{ color: '#888' }}>Net Subtotal</p>
+                        <p className="text-lg font-bold text-white">₱{preview.net.toFixed(2)}</p>
+                      </div>
+                      <div className="rounded-lg p-3" style={{ background: '#0d0d0d' }}>
+                        <p className="text-xs" style={{ color: '#888' }}>Tax ({taxConfig.tax_rate}%)</p>
+                        <p className="text-lg font-bold" style={{ color: '#CC0000' }}>₱{preview.tax.toFixed(2)}</p>
+                      </div>
+                      <div className="rounded-lg p-3" style={{ background: '#0d0d0d' }}>
+                        <p className="text-xs" style={{ color: '#888' }}>Total</p>
+                        <p className="text-lg font-bold text-white">₱{preview.total.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            <button onClick={handleTaxSave} disabled={taxSaving} className="btn-primary mt-4 flex items-center gap-2">
+              {taxSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {taxSaving ? 'Saving...' : 'Save Tax Config'}
+            </button>
+          </>
+        )}
       </div>
 
       {showMapPicker && (

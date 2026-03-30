@@ -64,13 +64,13 @@ const Inventory = () => {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ name: '', unit: '', stock_qty: '', reorder_level: '', cost_price: '' });
+    setForm({ name: '', unit: 'Piece', stock_qty: '', reorder_level: '', cost_price: '' });
     setShowModal(true);
   };
 
   const openEdit = (item) => {
     setEditing(item);
-    setForm({ name: item.name, unit: item.unit || '', stock_qty: item.stock_qty, reorder_level: item.reorder_level || '', cost_price: item.cost_price || '' });
+    setForm({ name: item.name, unit: item.unit || 'Piece', stock_qty: item.stock_qty, reorder_level: item.reorder_level || '', cost_price: item.cost_price || '' });
     setShowModal(true);
   };
 
@@ -222,7 +222,7 @@ const Inventory = () => {
                     </div>
                   </td>
                   <td className="table-cell">{item.unit || '—'}</td>
-                  <td className="table-cell font-semibold">{Math.round(Number(item.stock_qty || 0))}</td>
+                  <td className="table-cell font-semibold">{Math.round(Number(item.stock_qty || 0))} {item.unit || ''}</td>
                   <td className="table-cell">{item.reorder_level || '—'}</td>
                   <td className="table-cell">{item.cost_price ? `₱${Number(item.cost_price).toLocaleString()}` : '—'}</td>
                   <td className="table-cell">
@@ -268,8 +268,19 @@ const Inventory = () => {
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div><label className="label">Name *</label><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input-field" required /></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="label">Unit</label><input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="input-field" placeholder="pcs, bottles" /></div>
-                <div><label className="label">Stock Qty</label><input type="number" value={form.stock_qty} onChange={(e) => setForm({ ...form, stock_qty: e.target.value })} className="input-field" /></div>
+                <div>
+                  <label className="label">Unit of Measurement *</label>
+                  <select value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="input-field" required>
+                    <option value="Bottle">Bottle</option>
+                    <option value="Bucket">Bucket</option>
+                    <option value="Case (12 bottles)">Case (12 bottles)</option>
+                    <option value="Glass">Glass</option>
+                    <option value="Liter">Liter</option>
+                    <option value="Kilogram">Kilogram</option>
+                    <option value="Piece">Piece</option>
+                  </select>
+                </div>
+                <div><label className="label">Stock Qty *</label><input type="number" value={form.stock_qty} onChange={(e) => setForm({ ...form, stock_qty: e.target.value })} className="input-field" required /></div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="label">Reorder Level</label><input type="number" value={form.reorder_level} onChange={(e) => setForm({ ...form, reorder_level: e.target.value })} className="input-field" /></div>

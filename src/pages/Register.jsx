@@ -1,13 +1,17 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { Eye, EyeOff, Loader2, Upload, X, FileText, CheckCircle } from 'lucide-react';
+import FileDropZone from '../components/FileDropZone';
+import OCRDocumentScanner from '../components/OCRDocumentScanner';
 import useAuthStore from '../stores/authStore';
 import { authApi } from '../api/authApi';
 import logoImg from '../../logo.png';
+import { CAVITE_CITIES, getBarangaysForCity } from '../utils/caviteLocations';
 
-const STEPS = ['Owner Account', 'Bar Details', 'Documents'];
+const STEPS = ['Owner Account', 'Bar Details', 'Documents', 'Confirm'];
 
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const BAR_TYPE_OPTIONS = ['Restobar', 'Bar', 'Comedy Bar', 'KTV', 'Club'];
 
 const TIMES = (() => {
   const list = [];
@@ -75,86 +79,6 @@ const DarkTextarea = ({ label, error, ...props }) => (
   </div>
 );
 
-// ─── File drop zone ───
-const FileDropZone = ({ label, accept, file, onFile, onRemove, error }) => {
-  const inputRef = useRef(null);
-  const [dragging, setDragging] = useState(false);
-
-  const handleDrop = useCallback((e) => {
-    e.preventDefault();
-    setDragging(false);
-    const dropped = e.dataTransfer.files[0];
-    if (dropped) onFile(dropped);
-  }, [onFile]);
-
-  const handleDragOver = (e) => { e.preventDefault(); setDragging(true); };
-  const handleDragLeave = () => setDragging(false);
-
-  const isImage = file && file.type.startsWith('image/');
-  const preview = file && isImage ? URL.createObjectURL(file) : null;
-
-  return (
-    <div>
-      <label className="block text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#666', fontFamily: "'DM Sans', Inter, sans-serif" }}>
-        {label} <span style={{ color: '#CC0000' }}>*</span>
-      </label>
-
-      {file ? (
-        <div
-          className="relative flex items-center gap-3 px-4 py-3 rounded-xl"
-          style={{ background: 'rgba(204,0,0,0.05)', border: '1px solid rgba(204,0,0,0.25)' }}
-        >
-          {isImage && preview ? (
-            <img src={preview} alt="preview" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
-          ) : (
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(204,0,0,0.15)' }}>
-              <FileText className="w-5 h-5" style={{ color: '#CC0000' }} />
-            </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate" style={{ fontFamily: "'DM Sans', Inter, sans-serif" }}>{file.name}</p>
-            <p className="text-xs" style={{ color: '#666', fontFamily: "'DM Sans', Inter, sans-serif" }}>{(file.size / 1024).toFixed(0)} KB</p>
-          </div>
-          <button type="button" onClick={onRemove} className="flex-shrink-0 p-1 rounded-lg transition-colors" style={{ color: '#888' }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = '#888'; }}
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      ) : (
-        <div
-          className="relative cursor-pointer rounded-xl p-6 text-center transition-all duration-200"
-          style={{
-            border: `1.5px dashed ${dragging ? '#CC0000' : error ? 'rgba(204,0,0,0.4)' : 'rgba(204,0,0,0.25)'}`,
-            background: dragging ? 'rgba(204,0,0,0.06)' : 'rgba(204,0,0,0.02)',
-          }}
-          onClick={() => inputRef.current?.click()}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-        >
-          <Upload className="w-6 h-6 mx-auto mb-2" style={{ color: dragging ? '#CC0000' : '#555' }} />
-          <p className="text-sm font-medium text-white mb-0.5" style={{ fontFamily: "'DM Sans', Inter, sans-serif" }}>
-            Drag & drop or click to upload
-          </p>
-          <p className="text-xs" style={{ color: '#555', fontFamily: "'DM Sans', Inter, sans-serif" }}>
-            JPG, PNG, or PDF — max 5 MB
-          </p>
-          <input
-            ref={inputRef}
-            type="file"
-            accept={accept}
-            className="hidden"
-            onChange={(e) => { if (e.target.files[0]) onFile(e.target.files[0]); }}
-          />
-        </div>
-      )}
-      {error && <p className="mt-1 text-xs" style={{ color: '#ff6666', fontFamily: "'DM Sans', Inter, sans-serif" }}>{error}</p>}
-    </div>
-  );
-};
-
 // ─── Step indicator ───
 const StepIndicator = ({ current }) => (
   <div className="flex items-center justify-center gap-0 mb-8">
@@ -204,6 +128,7 @@ const Register = () => {
 
   // Step 1
   const [firstName, setFirstName] = useState('');
+  const [middleName, setMiddleName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -215,7 +140,10 @@ const Register = () => {
   // Step 2
   const [barName, setBarName] = useState('');
   const [barAddress, setBarAddress] = useState('');
+  const [barCity, setBarCity] = useState('');
+  const [barBarangay, setBarBarangay] = useState('');
   const [barDesc, setBarDesc] = useState('');
+  const [barTypes, setBarTypes] = useState([]);
   const [gcashNumber, setGcashNumber] = useState('');
   const [gcashName, setGcashName] = useState('');
   const [operatingHours, setOperatingHours] = useState([{ day: 'Monday', open: '', close: '' }]);
@@ -223,6 +151,13 @@ const Register = () => {
   // Step 3
   const [birFile, setBirFile] = useState(null);
   const [permitFile, setPermitFile] = useState(null);
+  const [selfieWithIdFile, setSelfieWithIdFile] = useState(null);
+  
+  // OCR extracted data
+  const [birNumber, setBirNumber] = useState('');
+  const [birExpiry, setBirExpiry] = useState('');
+  const [permitNumber, setPermitNumber] = useState('');
+  const [permitExpiry, setPermitExpiry] = useState('');
 
   // Field errors
   const [errors, setErrors] = useState({});
@@ -244,6 +179,8 @@ const Register = () => {
     const e = {};
     if (!barName.trim()) e.barName = 'Bar name is required';
     if (!barAddress.trim()) e.barAddress = 'Bar address is required';
+    if (!barCity) e.barCity = 'City is required';
+    if (!barBarangay) e.barBarangay = 'Barangay is required';
     if (!gcashNumber.trim()) e.gcashNumber = 'GCash number is required for payouts';
     else if (!/^09\d{9}$/.test(gcashNumber.trim())) e.gcashNumber = 'Must be a valid 09XXXXXXXXX number';
     if (!gcashName.trim()) e.gcashName = 'GCash account name is required';
@@ -257,9 +194,12 @@ const Register = () => {
     const e = {};
     if (!birFile) e.birFile = 'BIR Certificate is required';
     if (!permitFile) e.permitFile = 'Business Permit is required';
+    if (!selfieWithIdFile) e.selfieWithIdFile = 'Photo holding your ID is required';
     const maxSize = 5 * 1024 * 1024;
     if (birFile && birFile.size > maxSize) e.birFile = 'File must be under 5 MB';
     if (permitFile && permitFile.size > maxSize) e.permitFile = 'File must be under 5 MB';
+    if (selfieWithIdFile && selfieWithIdFile.size > maxSize) e.selfieWithIdFile = 'File must be under 5 MB';
+    if (selfieWithIdFile && !/image\/(jpeg|png)/.test(selfieWithIdFile.type)) e.selfieWithIdFile = 'Only JPG and PNG images are allowed';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -268,6 +208,7 @@ const Register = () => {
     setGlobalError('');
     if (step === 0 && !validateStep1()) return;
     if (step === 1 && !validateStep2()) return;
+    if (step === 2 && !validateStep3()) return;
     setStep((s) => s + 1);
   };
 
@@ -285,6 +226,7 @@ const Register = () => {
     try {
       const fd = new FormData();
       fd.append('first_name', firstName.trim());
+      if (middleName.trim()) fd.append('middle_name', middleName.trim());
       fd.append('last_name', lastName.trim());
       fd.append('email', email.trim().toLowerCase());
       fd.append('password', password);
@@ -295,14 +237,21 @@ const Register = () => {
         .join(', ');
       fd.append('bar_name', barName.trim());
       fd.append('bar_address', barAddress.trim());
-      fd.append('bar_city', 'Cavite');
+      fd.append('bar_city', barCity);
+      fd.append('bar_barangay', barBarangay);
       fd.append('bar_description', barDesc.trim());
+      fd.append('bar_types', JSON.stringify(barTypes));
       fd.append('opening_time', hoursStr);
       fd.append('closing_time', '');
       fd.append('gcash_number', gcashNumber.trim());
       fd.append('gcash_name', gcashName.trim());
       fd.append('bir_certificate', birFile);
       fd.append('business_permit', permitFile);
+      fd.append('selfie_with_id', selfieWithIdFile);
+      // Add permit expiry date if extracted from OCR
+      if (permitExpiry) {
+        fd.append('permit_expiry_date', permitExpiry);
+      }
 
       await authApi.registerBarOwner(fd);
       setSubmitted(true);
@@ -332,10 +281,10 @@ const Register = () => {
             className="text-white mb-4"
             style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: '2.2rem', letterSpacing: '0.05em' }}
           >
-            REGISTRATION SUBMITTED!
+            CHECK YOUR EMAIL
           </h2>
           <p className="text-base leading-relaxed mb-8" style={{ color: '#888', fontFamily: "'DM Sans', Inter, sans-serif" }}>
-            Your registration has been submitted. We will send you a confirmation regarding the <strong style={{ color: '#ccc' }}>approval or decline</strong> of your account. Please allow 1–3 business days for review.
+            Your registration has been submitted. Please verify your email address to continue. After verifying, your account will show <strong style={{ color: '#ccc' }}>Pending Admin Approval</strong> and we will notify you once approved.
           </p>
           <Link
             to="/login"
@@ -396,6 +345,13 @@ const Register = () => {
         >
           <StepIndicator current={step} />
 
+          <div
+            className="mb-6 text-sm rounded-xl px-4 py-3"
+            style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.28)', color: '#fbbf24', fontFamily: "'DM Sans', Inter, sans-serif" }}
+          >
+            <span className="font-semibold">IMPORTANT:</span> Illegal bars, adult entertainment establishments, and bars without complete business permits are NOT accepted on this platform. Submitting false information will result in rejection.
+          </div>
+
           {globalError && (
             <div
               className="mb-6 text-sm rounded-lg px-4 py-3"
@@ -405,12 +361,13 @@ const Register = () => {
             </div>
           )}
 
-          <form onSubmit={step === 2 ? handleSubmit : (e) => { e.preventDefault(); handleNext(); }}>
+          <form onSubmit={step === 3 ? handleSubmit : (e) => { e.preventDefault(); handleNext(); }}>
             {/* ─── STEP 1: Owner Account ─── */}
             {step === 0 && (
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <DarkInput label="First Name" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Juan" error={errors.firstName} />
+                  <DarkInput label="Middle Name (Optional)" value={middleName} onChange={(e) => setMiddleName(e.target.value)} placeholder="Santos" />
                   <DarkInput label="Last Name" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="dela Cruz" error={errors.lastName} />
                 </div>
                 <DarkInput label="Email Address" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" error={errors.email} />
@@ -460,18 +417,77 @@ const Register = () => {
             {step === 1 && (
               <div className="space-y-4">
                 <DarkInput label="Bar Name" value={barName} onChange={(e) => setBarName(e.target.value)} placeholder="e.g. Eclipse Bar" error={errors.barName} />
-                <DarkInput label="Bar Address" value={barAddress} onChange={(e) => setBarAddress(e.target.value)} placeholder="Street, Barangay" error={errors.barAddress} />
+                <DarkInput label="Bar Address" value={barAddress} onChange={(e) => setBarAddress(e.target.value)} placeholder="Street / Building / Unit" error={errors.barAddress} />
 
-                {/* City — locked to Cavite */}
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#666', fontFamily: "'DM Sans', Inter, sans-serif" }}>City</label>
-                  <div className="w-full px-4 py-3 rounded-xl text-sm flex items-center justify-between" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', fontFamily: "'DM Sans', Inter, sans-serif" }}>
-                    <span className="text-white font-medium">Cavite</span>
-                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(204,0,0,0.12)', color: '#CC0000' }}>Platform available in Cavite only</span>
-                  </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <DarkSelect
+                    label="City"
+                    value={barCity}
+                    onChange={(e) => {
+                      setBarCity(e.target.value);
+                      setBarBarangay('');
+                      setErrors((prev) => ({ ...prev, barCity: undefined, barBarangay: undefined }));
+                    }}
+                    error={errors.barCity}
+                  >
+                    <option value="">Select city...</option>
+                    {CAVITE_CITIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </DarkSelect>
+
+                  <DarkSelect
+                    label="Barangay"
+                    value={barBarangay}
+                    onChange={(e) => { setBarBarangay(e.target.value); setErrors((prev) => ({ ...prev, barBarangay: undefined })); }}
+                    disabled={!barCity}
+                    error={errors.barBarangay}
+                  >
+                    <option value="">{barCity ? 'Select barangay...' : 'Select city first...'}</option>
+                    {getBarangaysForCity(barCity).map((b) => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                  </DarkSelect>
+                </div>
+
+                <div className="text-xs px-3 py-2 rounded-xl" style={{ background: 'rgba(204,0,0,0.06)', border: '1px solid rgba(204,0,0,0.12)', color: '#888', fontFamily: "'DM Sans', Inter, sans-serif" }}>
+                  Platform available in Cavite only
                 </div>
 
                 <DarkTextarea label="Bar Description" value={barDesc} onChange={(e) => setBarDesc(e.target.value)} placeholder="Describe your bar briefly..." />
+
+                <div className="pt-2">
+                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#666', fontFamily: "'DM Sans', Inter, sans-serif" }}>
+                    Bar Type
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {BAR_TYPE_OPTIONS.map((opt) => {
+                      const checked = barTypes.includes(opt);
+                      return (
+                        <label
+                          key={opt}
+                          className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm cursor-pointer select-none transition-colors"
+                          style={{
+                            background: checked ? 'rgba(204,0,0,0.10)' : 'rgba(255,255,255,0.03)',
+                            border: checked ? '1px solid rgba(204,0,0,0.35)' : '1px solid rgba(255,255,255,0.06)',
+                            color: checked ? '#fff' : '#bbb',
+                            fontFamily: "'DM Sans', Inter, sans-serif"
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              setBarTypes((prev) => checked ? prev.filter((x) => x !== opt) : [...prev, opt]);
+                            }}
+                            className="accent-[#CC0000]"
+                          />
+                          <span className="text-sm">{opt}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
 
                 {/* Operating Hours */}
                 <div>
@@ -547,25 +563,112 @@ const Register = () => {
                   style={{ background: 'rgba(204,0,0,0.04)', border: '1px solid rgba(204,0,0,0.12)' }}
                 >
                   <p className="text-xs leading-relaxed" style={{ color: '#888', fontFamily: "'DM Sans', Inter, sans-serif" }}>
-                    Upload your <strong style={{ color: '#ccc' }}>BIR Certificate</strong> and <strong style={{ color: '#ccc' }}>Business Permit</strong>. Both documents are required. Accepted: JPG, PNG, PDF — max 5 MB each.
+                    Upload your <strong style={{ color: '#ccc' }}>BIR Certificate</strong>, <strong style={{ color: '#ccc' }}>Business Permit</strong>, and a <strong style={{ color: '#ccc' }}>photo holding your ID</strong>. All are required.
                   </p>
                 </div>
-                <FileDropZone
+                <OCRDocumentScanner
                   label="BIR Certificate"
                   accept=".jpg,.jpeg,.png,.pdf"
                   file={birFile}
                   onFile={(f) => { setBirFile(f); setErrors((e) => ({ ...e, birFile: undefined })); }}
-                  onRemove={() => setBirFile(null)}
+                  onRemove={() => { setBirFile(null); setBirNumber(''); setBirExpiry(''); }}
+                  onOCRExtract={(data) => {
+                    if (data.permitNumber) setBirNumber(data.permitNumber);
+                    if (data.expiryDate) setBirExpiry(data.expiryDate);
+                  }}
                   error={errors.birFile}
+                  documentType="bir"
                 />
-                <FileDropZone
+                {birFile && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">BIR Number (Extracted)</label>
+                      <input
+                        type="text"
+                        value={birNumber}
+                        onChange={(e) => setBirNumber(e.target.value)}
+                        placeholder="Verify/correct if needed"
+                        className="input-field"
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Expiry Date (Extracted)</label>
+                      <input
+                        type="text"
+                        value={birExpiry}
+                        onChange={(e) => setBirExpiry(e.target.value)}
+                        placeholder="Verify/correct if needed"
+                        className="input-field"
+                      />
+                    </div>
+                  </div>
+                )}
+                <OCRDocumentScanner
                   label="Business Permit"
                   accept=".jpg,.jpeg,.png,.pdf"
                   file={permitFile}
                   onFile={(f) => { setPermitFile(f); setErrors((e) => ({ ...e, permitFile: undefined })); }}
-                  onRemove={() => setPermitFile(null)}
+                  onRemove={() => { setPermitFile(null); setPermitNumber(''); setPermitExpiry(''); }}
+                  onOCRExtract={(data) => {
+                    if (data.permitNumber) setPermitNumber(data.permitNumber);
+                    if (data.expiryDate) setPermitExpiry(data.expiryDate);
+                  }}
                   error={errors.permitFile}
+                  documentType="permit"
                 />
+                {permitFile && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">Permit Number (Extracted)</label>
+                      <input
+                        type="text"
+                        value={permitNumber}
+                        onChange={(e) => setPermitNumber(e.target.value)}
+                        placeholder="Verify/correct if needed"
+                        className="input-field"
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Expiry Date (Extracted)</label>
+                      <input
+                        type="text"
+                        value={permitExpiry}
+                        onChange={(e) => setPermitExpiry(e.target.value)}
+                        placeholder="Verify/correct if needed"
+                        className="input-field"
+                      />
+                    </div>
+                  </div>
+                )}
+                <FileDropZone
+                  label="Photo holding your ID"
+                  helpText="Take a clear photo of yourself holding your valid government ID. This is required for identity verification."
+                  hintText="JPG or PNG — max 5 MB"
+                  accept=".jpg,.jpeg,.png"
+                  file={selfieWithIdFile}
+                  onFile={(f) => { setSelfieWithIdFile(f); setErrors((e) => ({ ...e, selfieWithIdFile: undefined })); }}
+                  onRemove={() => setSelfieWithIdFile(null)}
+                  error={errors.selfieWithIdFile}
+                />
+              </div>
+            )}
+
+            {step === 3 && (
+              <div className="space-y-6">
+                <div
+                  className="rounded-xl p-4"
+                  style={{ background: 'rgba(204,0,0,0.06)', border: '1px solid rgba(204,0,0,0.18)' }}
+                >
+                  <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#CC0000', fontFamily: "'DM Sans', Inter, sans-serif" }}>
+                    You entered this email:
+                  </p>
+                  <p className="text-base font-semibold text-white" style={{ fontFamily: "'DM Sans', Inter, sans-serif" }}>
+                    {email || '—'}
+                  </p>
+                  <p className="mt-2 text-xs" style={{ color: '#888', fontFamily: "'DM Sans', Inter, sans-serif" }}>
+                    Make sure this is correct before submitting.
+                  </p>
+                </div>
               </div>
             )}
 
@@ -594,8 +697,8 @@ const Register = () => {
               >
                 {submitting ? (
                   <><Loader2 className="w-4 h-4 animate-spin" /> Submitting...</>
-                ) : step === 2 ? (
-                  'Submit Registration'
+                ) : step === 3 ? (
+                  'Confirm & Submit'
                 ) : (
                   'Continue →'
                 )}

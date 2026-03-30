@@ -28,7 +28,7 @@ const Events = () => {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ title: '', description: '', event_date: '', start_time: '', end_time: '', entry_price: '', max_capacity: '' });
+  const [form, setForm] = useState({ title: '', event_type: '', description: '', event_date: '', start_time: '', end_time: '', entry_price: '', max_capacity: '' });
   const [detailModal, setDetailModal] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailLiked, setDetailLiked] = useState(false);
@@ -85,7 +85,7 @@ const Events = () => {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ title: '', description: '', event_date: '', start_time: '', end_time: '', entry_price: '', max_capacity: '' });
+    setForm({ title: '', event_type: '', description: '', event_date: '', start_time: '', end_time: '', entry_price: '', max_capacity: '' });
     setEventImageFile(null); setEventImagePreview(null);
     setShowModal(true);
   };
@@ -93,7 +93,7 @@ const Events = () => {
   const openEdit = (ev) => {
     setEditing(ev);
     setForm({
-      title: ev.title, description: ev.description || '', event_date: ev.event_date?.split('T')[0] || '',
+      title: ev.title, event_type: ev.event_type || '', description: ev.description || '', event_date: ev.event_date?.split('T')[0] || '',
       start_time: ev.start_time || '', end_time: ev.end_time || '',
       entry_price: ev.entry_price || '', max_capacity: ev.max_capacity || '',
     });
@@ -627,6 +627,18 @@ const Events = () => {
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div><label className="label">Title *</label><input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="input-field" required /></div>
+              <div>
+                <label className="label">Event Type</label>
+                <select value={form.event_type} onChange={(e) => setForm({ ...form, event_type: e.target.value })} className="input-field">
+                  <option value="">Select type (optional)</option>
+                  <option value="Stand-up Comedy">Stand-up Comedy</option>
+                  <option value="Open Mic">Open Mic</option>
+                  <option value="Live Band">Live Band</option>
+                  <option value="DJ Night">DJ Night</option>
+                  <option value="Ladies Night">Ladies Night</option>
+                  <option value="Custom">Custom</option>
+                </select>
+              </div>
               <div><label className="label">Description</label><textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="input-field h-20 resize-none" /></div>
               <div><label className="label">Event Date *</label><input type="date" value={form.event_date} onChange={(e) => setForm({ ...form, event_date: e.target.value })} className="input-field" required /></div>
               <div className="grid grid-cols-2 gap-3">

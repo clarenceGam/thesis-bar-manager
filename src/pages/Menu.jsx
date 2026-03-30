@@ -181,7 +181,7 @@ const Menu = () => {
                 {item.category && <span className="badge-gray text-xs">{item.category}</span>}
               </div>
               <div className="flex items-center justify-between mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                <span className="text-xs" style={{ color: '#666' }}>Stock: {item.stock_qty ?? '—'}</span>
+                <span className="text-xs" style={{ color: '#666' }}>Stock: {item.stock_qty ?? '—'} {item.unit || ''}</span>
                 {can('menu_update') && (
                   <div className="flex items-center gap-1">
                     <button onClick={() => toggleAvailability(item)} className="text-xs font-medium" style={{ color: '#CC0000' }}>
@@ -224,7 +224,7 @@ const Menu = () => {
                   <select value={form.inventory_item_id} onChange={(e) => setForm({ ...form, inventory_item_id: e.target.value })} className="input-field" required>
                     <option value="">Select item...</option>
                     {inventory.filter(inv => inv.is_active).map((inv) => (
-                      <option key={inv.id} value={inv.id}>{inv.name} (Stock: {inv.stock_qty})</option>
+                      <option key={inv.id} value={inv.id}>{inv.name} (Stock: {inv.stock_qty} {inv.unit || ''})</option>
                     ))}
                   </select>
                 </div>

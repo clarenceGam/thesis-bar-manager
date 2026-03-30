@@ -5,6 +5,7 @@ import ProtectedRoute from './components/common/ProtectedRoute';
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import VerifyBarOwnerEmail from './pages/VerifyBarOwnerEmail';
 import Dashboard from './pages/Dashboard';
 import BarManagement from './pages/BarManagement';
 import Inventory from './pages/Inventory';
@@ -17,10 +18,13 @@ import Attendance from './pages/Attendance';
 import Leaves from './pages/Leaves';
 import Payroll from './pages/Payroll';
 import DeductionSettings from './pages/DeductionSettings';
+import PayrollSettings from './pages/PayrollSettings';
 import Documents from './pages/Documents';
 import Customers from './pages/Customers';
 import Reviews from './pages/Reviews';
 import Promotions from './pages/Promotions';
+import Packages from './pages/Packages';
+import InventoryRequests from './pages/InventoryRequests';
 import Analytics from './pages/Analytics';
 import Financials from './pages/Financials';
 import AuditLogs from './pages/AuditLogs';
@@ -38,6 +42,7 @@ const App = () => {
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/verify-bar-owner-email" element={<VerifyBarOwnerEmail />} />
 
       <Route
         element={
@@ -58,10 +63,13 @@ const App = () => {
         <Route path="/leaves" element={<ProtectedRoute permissions={['leave_view_own', 'leave_view_all']}><Leaves /></ProtectedRoute>} />
         <Route path="/payroll" element={<ProtectedRoute permissions={['payroll_view_own', 'payroll_view_all']}><Payroll /></ProtectedRoute>} />
         <Route path="/deduction-settings" element={<ProtectedRoute permissions={['payroll_create']}><DeductionSettings /></ProtectedRoute>} />
+        <Route path="/payroll-settings" element={<ProtectedRoute permissions={['payroll_create']}><PayrollSettings /></ProtectedRoute>} />
         <Route path="/documents" element={<ProtectedRoute permissions={['documents_view_own', 'documents_view_all']}><Documents /></ProtectedRoute>} />
         <Route path="/customers" element={<ProtectedRoute permissions={['ban_view']}><Customers /></ProtectedRoute>} />
         <Route path="/reviews" element={<ProtectedRoute permissions={['reviews_view']}><Reviews /></ProtectedRoute>} />
         <Route path="/promotions" element={<Promotions />} />
+        <Route path="/packages" element={<ProtectedRoute permissions={['menu_view']}><Packages /></ProtectedRoute>} />
+        <Route path="/inventory-requests" element={<InventoryRequests />} />
         <Route path="/analytics" element={<ProtectedRoute permissions={['analytics_bar_view']}><Analytics /></ProtectedRoute>} />
         <Route path="/financials" element={<ProtectedRoute permissions={['financials_view']}><Financials /></ProtectedRoute>} />
         <Route path="/audit-logs" element={<ProtectedRoute permissions={['logs_view']}><AuditLogs /></ProtectedRoute>} />

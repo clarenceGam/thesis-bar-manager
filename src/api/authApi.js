@@ -14,4 +14,7 @@ export const authApi = {
     apiClient.post('/auth/register-bar-owner', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
+
+  verifyBarOwnerEmail: (token) =>
+    apiClient.get('/auth/verify-bar-owner-email', { params: { token } }),
 };

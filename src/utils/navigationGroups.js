@@ -3,7 +3,7 @@ import {
   CalendarCheck, PartyPopper, Users, Clock, CalendarOff,
   Wallet, FileText, UserCheck, Star, BarChart3, DollarSign,
   ScrollText, GitBranch, Crown, Settings as SettingsIcon,
-  Store, UsersRound, TrendingUp, Building2,
+  Store, UsersRound, TrendingUp, Building2, ClipboardCheck
 } from 'lucide-react';
 
 /**
@@ -51,11 +51,25 @@ export const NAV_GROUPS = [
         permissions: ['menu_view'],
       },
       {
+        key: 'packages',
+        label: 'Packages',
+        path: '/packages',
+        icon: Package,
+        permissions: ['menu_view'],
+      },
+      {
         key: 'inventory',
         label: 'Inventory',
         path: '/inventory',
         icon: Package,
         permissions: ['menu_view'],
+      },
+      {
+        key: 'inventory-requests',
+        label: 'Inventory Requests',
+        path: '/inventory-requests',
+        icon: ClipboardCheck,
+        permissions: [],
       },
       {
         key: 'tables',
@@ -91,10 +105,10 @@ export const NAV_GROUPS = [
     ],
   },
 
-  // 👥 People & Payroll
+  // 👥 HR
   {
     id: 'people-payroll',
-    label: 'People & Payroll',
+    label: 'HR',
     icon: UsersRound,
     isStandalone: false,
     items: [
@@ -132,6 +146,13 @@ export const NAV_GROUPS = [
         path: '/deduction-settings',
         icon: SettingsIcon,
         permissions: ['payroll_create', 'deduction_settings_manage'],
+      },
+      {
+        key: 'payroll-settings',
+        label: 'Payroll Settings',
+        path: '/payroll-settings',
+        icon: DollarSign,
+        permissions: ['payroll_create'],
       },
       {
         key: 'documents',

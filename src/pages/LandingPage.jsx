@@ -24,9 +24,9 @@ const Navbar = () => (
     <div className="flex items-center gap-3">
       <div
         className="w-8 h-8 rounded-lg flex items-center justify-center font-display text-white text-xs"
-        style={{ background: '#CC0000' }}
+       
       >
-        TPG
+        <img src="../logo.png" alt="" />
       </div>
       <span className="font-display text-white tracking-widest text-sm hidden sm:block">The Party Goers BarOps</span>
     </div>
@@ -52,6 +52,18 @@ const Navbar = () => (
     </div>
 
     <div className="flex items-center gap-3">
+      <div className="customer-redirect-nav hidden md:flex items-center gap-2 mr-4">
+        <span className="text-gray-500 text-xs">Are you a customer?</span>
+        <a
+          href="https://thepartygoers.fun"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-red-500 text-xs font-semibold text-decoration-none border border-red-500/40 px-3 py-1 rounded-full transition-all duration-150 hover:bg-red-500/10 hover:border-red-500"
+          style={{ color: '#E8001E', borderColor: 'rgba(232, 0, 30, 0.4)' }}
+        >
+          Visit Party Goers →
+        </a>
+      </div>
       <Link
         to="/login"
         className="font-body text-sm text-gray-400 hover:text-white transition-colors duration-200 hidden sm:block"

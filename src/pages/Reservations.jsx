@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Search, Check, X as XIcon, Ban, CalendarCheck, Clock, Users, Hash, CreditCard, Package, User, MapPin, FileText, Loader2 } from 'lucide-react';
 import { reservationApi } from '../api/reservationApi';
+import { barApi } from '../api/barApi';
 import { usePermission } from '../hooks/usePermission';
 import { format } from 'date-fns';
 import { parseUTC } from '../utils/dateUtils';
@@ -12,6 +13,9 @@ const statusColors = {
   pending:   'badge-warning',
   approved:  'badge-success',
   confirmed: 'badge-success',
+  checked_in: 'badge-success',
+  completed: 'badge-gray',
+  no_show: 'badge-danger',
   rejected:  'badge-danger',
   cancelled: 'badge-gray',
 };
@@ -172,8 +176,12 @@ const Reservations = () => {
   const [txnDetail, setTxnDetail] = useState(null);
   const [selectedReservation, setSelectedReservation] = useState(null);
   const [rowLoading, setRowLoading] = useState(null);
+  const [barDetails, setBarDetails] = useState(null);
+  const [timeLimitMinutes, setTimeLimitMinutes] = useState(120);
+  const [timeLimitSaving, setTimeLimitSaving] = useState(false);
 
   useEffect(() => { load(); }, []);
+  useEffect(() => { loadBarDetails(); }, []);
 
   const load = async () => {
     try {
@@ -181,6 +189,43 @@ const Reservations = () => {
       setReservations(data.data || data || []);
     } catch {} finally { setLoading(false); }
   };
+
+  const loadBarDetails = async () => {
+    try {
+      const { data } = await barApi.getDetails();
+      const d = data.data || data;
+      setBarDetails(d);
+      if (d?.reservation_time_limit_minutes != null) {
+        const n = Number(d.reservation_time_limit_minutes);
+        if (Number.isFinite(n) && n > 0) setTimeLimitMinutes(n);
+      }
+    } catch {}
+  };
+
+  const parseBarTypes = (raw) => {
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const derivedTimeLimitMode = (types) => {
+    const norm = types.map((x) => String(x || '').toLowerCase());
+    if (norm.includes('club')) return 'club';
+    if (norm.includes('comedy bar')) return 'event';
+    if (norm.includes('restobar')) return 'restobar';
+    return null;
+  };
+
+  const effectiveMode = (() => {
+    const types = parseBarTypes(barDetails?.bar_types);
+    return barDetails?.reservation_time_limit_mode || derivedTimeLimitMode(types);
+  })();
+
+  const barTypesList = parseBarTypes(barDetails?.bar_types);
 
   const handleAction = (id, action) => {
     setConfirmModal({ isOpen: true, id, action });
@@ -191,6 +236,8 @@ const Reservations = () => {
     try {
       if (action === 'approved') await reservationApi.approve(id);
       else if (action === 'rejected') await reservationApi.reject(id);
+      else if (action === 'check_in') await reservationApi.checkIn(id);
+      else if (action === 'complete') await reservationApi.complete(id);
       else await reservationApi.cancel(id);
       toast.success('Reservation updated');
       setConfirmModal({ isOpen: false, id: null, action: null });
@@ -266,6 +313,71 @@ const Reservations = () => {
         <div className="card py-4"><p className="text-xs" style={{ color: '#888' }}>Cancelled</p><p className="text-xl font-bold" style={{ color: '#666' }}>{stats.cancelled}</p></div>
       </div>
 
+      <div className="card">
+        <h3 className="text-sm font-semibold text-white mb-2">Reservation Time Limit</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="rounded-lg p-3" style={{ background: '#161616', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <p className="text-xs" style={{ color: '#888' }}>Bar Type</p>
+            <p className="text-sm font-medium text-white">{barTypesList.length ? barTypesList.join(', ') : '—'}</p>
+          </div>
+          <div className="rounded-lg p-3" style={{ background: '#161616', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <p className="text-xs" style={{ color: '#888' }}>Rule</p>
+            <p className="text-sm font-medium text-white">
+              {effectiveMode === 'club' ? 'Whole day (manual release)' :
+               effectiveMode === 'event' ? 'Event duration' :
+               effectiveMode === 'restobar' || effectiveMode === 'custom' ? 'Fixed minutes' :
+               'Default (1 hour)'}
+            </p>
+          </div>
+          <div className="rounded-lg p-3" style={{ background: '#161616', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <p className="text-xs" style={{ color: '#888' }}>Time Limit</p>
+            {(effectiveMode === 'restobar' || effectiveMode === 'custom') ? (
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  type="number"
+                  min="30"
+                  step="30"
+                  value={timeLimitMinutes}
+                  onChange={(e) => setTimeLimitMinutes(e.target.value)}
+                  className="input-field"
+                  style={{ maxWidth: 140 }}
+                />
+                <button
+                  className="px-3 py-2 rounded-lg text-sm font-medium text-white transition-colors"
+                  disabled={timeLimitSaving}
+                  style={{ background: '#CC0000' }}
+                  onClick={async () => {
+                    try {
+                      setTimeLimitSaving(true);
+                      const n = Number(timeLimitMinutes);
+                      if (!Number.isFinite(n) || n <= 0) return toast.error('Enter a valid minute value');
+                      await barApi.updateDetails({ reservation_time_limit_mode: effectiveMode || 'custom', reservation_time_limit_minutes: n });
+                      toast.success('Reservation time limit updated');
+                      await loadBarDetails();
+                    } catch {
+                      toast.error('Failed to update time limit');
+                    } finally {
+                      setTimeLimitSaving(false);
+                    }
+                  }}
+                >
+                  Save
+                </button>
+              </div>
+            ) : (
+              <p className="text-sm font-medium text-white mt-1">
+                {effectiveMode === 'club' ? 'All day' : effectiveMode === 'event' ? 'Varies by event' : '60 minutes'}
+              </p>
+            )}
+            {effectiveMode === 'club' && (
+              <p className="text-xs mt-2" style={{ color: '#666' }}>
+                For clubs: tables stay reserved for the date until staff marks the reservation completed.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Transaction Lookup */}
       <div className="card">
         <div className="flex items-center gap-2 mb-3">
@@ -310,7 +422,7 @@ const Reservations = () => {
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search guest..." className="bg-transparent text-sm outline-none flex-1 text-white placeholder-gray-600" />
         </div>
         <div className="flex gap-1 rounded-lg p-1" style={{ background: '#161616', border: '1px solid rgba(255,255,255,0.06)' }}>
-          {['all', 'pending', 'approved', 'rejected', 'cancelled'].map((f) => (
+          {['all', 'pending', 'approved', 'confirmed', 'checked_in', 'completed', 'no_show', 'rejected', 'cancelled'].map((f) => (
             <button key={f} onClick={() => setFilter(f)} className="px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
               style={filter === f ? { background: '#CC0000', color: '#fff' } : { color: '#888' }}>
               {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -399,6 +511,22 @@ const Reservations = () => {
                           <Ban className="w-4 h-4" />
                         </button>
                       )}
+                      {r.status === 'confirmed' && (
+                        <button onClick={(e) => { e.stopPropagation(); handleAction(r.id, 'check_in'); }} className="p-1.5 rounded-lg transition-colors" style={{ color: '#4ade80' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(34,197,94,0.1)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                          title="Check In">
+                          <CalendarCheck className="w-4 h-4" />
+                        </button>
+                      )}
+                      {r.status === 'checked_in' && (
+                        <button onClick={(e) => { e.stopPropagation(); handleAction(r.id, 'complete'); }} className="p-1.5 rounded-lg transition-colors" style={{ color: '#4ade80' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(34,197,94,0.1)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                          title="Mark Completed">
+                          <Check className="w-4 h-4" />
+                        </button>
+                      )}
                     </td>
                   )}
                 </tr>
@@ -435,18 +563,26 @@ const Reservations = () => {
         onConfirm={executeAction}
         title={
           confirmModal.action === 'approved' ? 'Approve Reservation?' :
-          confirmModal.action === 'rejected' ? 'Reject Reservation?' : 'Cancel Reservation?'
+          confirmModal.action === 'rejected' ? 'Reject Reservation?' :
+          confirmModal.action === 'check_in' ? 'Check In Customer?' :
+          confirmModal.action === 'complete' ? 'Mark Reservation Completed?' :
+          'Cancel Reservation?'
         }
         message={
           confirmModal.action === 'approved' ? 'This reservation will be approved and the customer will be notified.' :
           confirmModal.action === 'rejected' ? 'This reservation will be rejected and the customer will be notified.' :
+          confirmModal.action === 'check_in' ? 'This will mark the customer as checked in.' :
+          confirmModal.action === 'complete' ? 'This will release the table for new reservations.' :
           'This reservation will be cancelled.'
         }
         confirmText={
           confirmModal.action === 'approved' ? 'Approve' :
-          confirmModal.action === 'rejected' ? 'Reject' : 'Cancel'
+          confirmModal.action === 'rejected' ? 'Reject' :
+          confirmModal.action === 'check_in' ? 'Check In' :
+          confirmModal.action === 'complete' ? 'Complete' :
+          'Cancel'
         }
-        type={confirmModal.action === 'approved' ? 'info' : 'danger'}
+        type={confirmModal.action === 'approved' ? 'info' : confirmModal.action === 'check_in' || confirmModal.action === 'complete' ? 'info' : 'danger'}
       />
     </div>
   );

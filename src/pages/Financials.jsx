@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, TrendingUp, TrendingDown, Wallet, CreditCard, BarChart2, Calendar, Filter, Eye, X, Loader2, ArrowDownToLine, Clock } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, Wallet, CreditCard, BarChart2, Calendar, Filter, Eye, X, Loader2, ArrowDownToLine, Clock, Receipt } from 'lucide-react';
 import { financialsApi } from '../api/financialsApi';
+import { orderApi } from '../api/orderApi';
 import { posApi } from '../api/posApi';
 import { format } from 'date-fns';
 import { parseUTC } from '../utils/dateUtils';
@@ -24,6 +25,12 @@ const Financials = () => {
   const [payoutsLoading, setPayoutsLoading] = useState(false);
   const [payoutFilters, setPayoutFilters] = useState({ status: '', from: '', to: '' });
 
+  const [taxReport, setTaxReport] = useState(null);
+  const [taxReportLoading, setTaxReportLoading] = useState(false);
+  const today = new Date().toISOString().slice(0, 10);
+  const firstOfMonth = today.slice(0, 8) + '01';
+  const [taxFilters, setTaxFilters] = useState({ from: firstOfMonth, to: today });
+
   useEffect(() => {
     loadFinancials();
     loadOrders();
@@ -31,6 +38,7 @@ const Financials = () => {
 
   useEffect(() => {
     if (activeTab === 'payouts') loadPayouts();
+    if (activeTab === 'tax') loadTaxReport();
   }, [activeTab]);
 
   const loadFinancials = async () => {
@@ -82,6 +90,18 @@ const Financials = () => {
     }
   };
 
+  const loadTaxReport = async () => {
+    setTaxReportLoading(true);
+    try {
+      const { data } = await orderApi.salesReport(taxFilters);
+      setTaxReport(data.data || data);
+    } catch (err) {
+      console.error('Failed to load tax report:', err);
+    } finally {
+      setTaxReportLoading(false);
+    }
+  };
+
   const handleFilterChange = () => {
     loadFinancials();
   };
@@ -120,6 +140,7 @@ const Financials = () => {
           { id: 'cashflow', label: 'Cashflow', icon: TrendingUp },
           { id: 'orders', label: 'POS Orders', icon: CreditCard },
           { id: 'payouts', label: 'Payouts', icon: ArrowDownToLine },
+          { id: 'tax', label: 'Tax Report', icon: Receipt },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -532,6 +553,214 @@ const Financials = () => {
               </table>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* TAX REPORT TAB */}
+      {activeTab === 'tax' && (
+        <div className="space-y-6">
+          {/* Date Range Filter */}
+          <div className="card">
+            <div className="flex items-center gap-3 flex-wrap">
+              <Calendar className="w-5 h-5" style={{ color: '#555' }} />
+              <input
+                type="date"
+                value={taxFilters.from}
+                onChange={(e) => setTaxFilters({ ...taxFilters, from: e.target.value })}
+                className="input-field w-auto"
+              />
+              <span style={{ color: '#666' }}>to</span>
+              <input
+                type="date"
+                value={taxFilters.to}
+                onChange={(e) => setTaxFilters({ ...taxFilters, to: e.target.value })}
+                className="input-field w-auto"
+              />
+              <button onClick={loadTaxReport} className="btn-primary flex items-center gap-2">
+                <Filter className="w-4 h-4" /> Apply
+              </button>
+            </div>
+          </div>
+
+          {taxReportLoading ? (
+            <div className="card flex items-center justify-center py-16">
+              <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#CC0000' }} />
+            </div>
+          ) : taxReport ? (
+            <>
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="card" style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.12), rgba(59,130,246,0.06))' }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium" style={{ color: '#60a5fa' }}>Total Orders</p>
+                    <CreditCard className="w-8 h-8" style={{ color: '#60a5fa' }} />
+                  </div>
+                  <p className="text-3xl font-extrabold text-white">{Number(taxReport.total_orders || 0).toLocaleString()}</p>
+                  <p className="text-xs mt-1" style={{ color: '#60a5fa' }}>Web orders only</p>
+                </div>
+
+                <div className="card" style={{ background: 'linear-gradient(135deg, rgba(34,197,94,0.12), rgba(34,197,94,0.06))' }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium" style={{ color: '#4ade80' }}>Net Sales</p>
+                    <TrendingUp className="w-8 h-8" style={{ color: '#4ade80' }} />
+                  </div>
+                  <p className="text-3xl font-extrabold text-white">₱{Number(taxReport.net_sales || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  <p className="text-xs mt-1" style={{ color: '#4ade80' }}>Before tax</p>
+                </div>
+
+                <div className="card" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.12), rgba(245,158,11,0.06))' }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium" style={{ color: '#fbbf24' }}>Tax Collected</p>
+                    <Receipt className="w-8 h-8" style={{ color: '#fbbf24' }} />
+                  </div>
+                  <p className="text-3xl font-extrabold text-white">₱{Number(taxReport.total_tax_collected || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  <p className="text-xs mt-1" style={{ color: '#fbbf24' }}>VAT / tax remittable</p>
+                </div>
+
+                <div className="card" style={{ background: 'linear-gradient(135deg, rgba(204,0,0,0.12), rgba(204,0,0,0.06))' }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium" style={{ color: '#ff6666' }}>Gross Sales</p>
+                    <DollarSign className="w-8 h-8" style={{ color: '#ff6666' }} />
+                  </div>
+                  <p className="text-3xl font-extrabold text-white">₱{Number(taxReport.total_sales || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  <p className="text-xs mt-1" style={{ color: '#ff6666' }}>Including tax</p>
+                </div>
+              </div>
+
+              {/* Tax Breakdown Summary */}
+              <div className="card">
+                <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+                  <Receipt className="w-5 h-5" style={{ color: '#CC0000' }} />
+                  Tax Breakdown
+                </h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: '#161616', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div>
+                      <p className="text-sm font-medium text-white">Net Sales (excl. tax)</p>
+                      <p className="text-xs mt-0.5" style={{ color: '#888' }}>Revenue before tax is applied</p>
+                    </div>
+                    <p className="text-lg font-bold text-white">₱{Number(taxReport.net_sales || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  </div>
+                  <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)' }}>
+                    <div>
+                      <p className="text-sm font-medium" style={{ color: '#fbbf24' }}>Output VAT / Tax Collected</p>
+                      <p className="text-xs mt-0.5" style={{ color: '#888' }}>Amount remittable to BIR</p>
+                    </div>
+                    <p className="text-lg font-bold" style={{ color: '#fbbf24' }}>₱{Number(taxReport.total_tax_collected || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  </div>
+                  <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)' }}>
+                    <div>
+                      <p className="text-sm font-medium" style={{ color: '#4ade80' }}>Gross Sales (incl. tax)</p>
+                      <p className="text-xs mt-0.5" style={{ color: '#888' }}>Total amount collected from customers</p>
+                    </div>
+                    <p className="text-lg font-bold" style={{ color: '#4ade80' }}>₱{Number(taxReport.total_sales || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  </div>
+                  {Number(taxReport.total_orders || 0) > 0 && (
+                    <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: '#161616', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div>
+                        <p className="text-sm font-medium text-white">Avg Tax per Order</p>
+                        <p className="text-xs mt-0.5" style={{ color: '#888' }}>Based on {Number(taxReport.total_orders).toLocaleString()} orders</p>
+                      </div>
+                      <p className="text-lg font-bold text-white">₱{(Number(taxReport.total_tax_collected || 0) / Number(taxReport.total_orders)).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Daily Breakdown Table */}
+              {taxReport.daily && taxReport.daily.length > 0 && (
+                <div className="card p-0 overflow-hidden">
+                  <div className="px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                    <h3 className="font-bold text-white flex items-center gap-2">
+                      <BarChart2 className="w-5 h-5" style={{ color: '#CC0000' }} />
+                      Daily Tax Breakdown
+                    </h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                        <tr>
+                          <th className="table-header">Date</th>
+                          <th className="table-header text-right">Orders</th>
+                          <th className="table-header text-right">Net Sales</th>
+                          <th className="table-header text-right">Tax Collected</th>
+                          <th className="table-header text-right">Gross Revenue</th>
+                          <th className="table-header text-right">Tax %</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {taxReport.daily.map((row, idx) => {
+                          const taxPct = Number(row.revenue) > 0
+                            ? ((Number(row.tax_collected) / Number(row.revenue)) * 100).toFixed(1)
+                            : '0.0';
+                          return (
+                            <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(204,0,0,0.04)'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                            >
+                              <td className="table-cell font-medium text-white">{row.date}</td>
+                              <td className="table-cell text-right text-sm" style={{ color: '#60a5fa' }}>{Number(row.orders).toLocaleString()}</td>
+                              <td className="table-cell text-right text-sm text-white">₱{(Number(row.revenue) - Number(row.tax_collected)).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                              <td className="table-cell text-right text-sm font-semibold" style={{ color: '#fbbf24' }}>₱{Number(row.tax_collected).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                              <td className="table-cell text-right text-sm" style={{ color: '#4ade80' }}>₱{Number(row.revenue).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                              <td className="table-cell text-right">
+                                <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(245,158,11,0.12)', color: '#fbbf24' }}>
+                                  {taxPct}%
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                        <tr style={{ background: '#111' }}>
+                          <td className="table-cell font-bold text-white">Total</td>
+                          <td className="table-cell text-right font-bold" style={{ color: '#60a5fa' }}>{Number(taxReport.total_orders || 0).toLocaleString()}</td>
+                          <td className="table-cell text-right font-bold text-white">₱{Number(taxReport.net_sales || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td className="table-cell text-right font-bold" style={{ color: '#fbbf24' }}>₱{Number(taxReport.total_tax_collected || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td className="table-cell text-right font-bold" style={{ color: '#4ade80' }}>₱{Number(taxReport.total_sales || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td className="table-cell text-right">—</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Chart */}
+              {taxReport.daily && taxReport.daily.length > 1 && (
+                <div className="card">
+                  <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+                    <BarChart2 className="w-5 h-5" style={{ color: '#CC0000' }} />
+                    Revenue vs Tax Chart
+                  </h3>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <BarChart data={taxReport.daily.map(r => ({
+                      date: r.date,
+                      'Net Sales': parseFloat((Number(r.revenue) - Number(r.tax_collected)).toFixed(2)),
+                      'Tax': parseFloat(Number(r.tax_collected).toFixed(2)),
+                    }))}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                      <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#666' }} />
+                      <YAxis tick={{ fontSize: 11, fill: '#666' }} />
+                      <Tooltip
+                        contentStyle={{ background: '#111', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                        labelStyle={{ color: '#fff' }}
+                        formatter={(v) => `₱${Number(v).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`}
+                      />
+                      <Legend />
+                      <Bar dataKey="Net Sales" stackId="a" fill="#4ade80" radius={[0,0,0,0]} />
+                      <Bar dataKey="Tax" stackId="a" fill="#fbbf24" radius={[4,4,0,0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="card text-center py-12" style={{ color: '#555' }}>
+              No tax data available for the selected period.
+            </div>
+          )}
         </div>
       )}
 

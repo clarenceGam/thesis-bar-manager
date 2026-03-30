@@ -15,4 +15,7 @@ export const tableApi = {
 
   getStatus: (date) =>
     apiClient.get('/owner/bar/tables/status', { params: { date } }),
+
+  remove: (id) =>
+    apiClient.delete(`/owner/bar/tables/${id}`),
 };
