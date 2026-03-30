@@ -1,14 +1,57 @@
 import React, { useState } from 'react';
-import { Save, Loader2, User, Mail, Phone, Calendar } from 'lucide-react';
+import { Save, Loader2, User, Mail, Phone, Calendar, Key } from 'lucide-react';
 import useAuthStore from '../stores/authStore';
 import { getUploadUrl } from '../api/apiClient';
+import apiClient from '../api/apiClient';
 import toast from 'react-hot-toast';
 
 const Profile = () => {
   const { user } = useAuthStore();
   const [tab, setTab] = useState('info');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
 
   if (!user) return null;
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast.error('All fields are required');
+      return;
+    }
+    
+    if (newPassword.length < 6) {
+      toast.error('New password must be at least 6 characters');
+      return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+      toast.error('New passwords do not match');
+      return;
+    }
+    
+    setChangingPassword(true);
+    try {
+      const response = await apiClient.post('/owner/change-password', {
+        currentPassword,
+        newPassword
+      });
+      
+      if (response.data.success) {
+        toast.success('Password changed successfully');
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to change password');
+    } finally {
+      setChangingPassword(false);
+    }
+  };
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -76,23 +119,58 @@ const Profile = () => {
 
       {tab === 'security' && (
         <div className="card">
-          <h3 className="font-bold text-white mb-4">Change Password</h3>
-          <p className="text-sm mb-4" style={{ color: '#888' }}>Password changes are managed by your bar administrator. Contact them to reset your password.</p>
-          <div className="space-y-4">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: 'rgba(204,0,0,0.1)' }}>
+              <Key className="w-5 h-5" style={{ color: '#CC0000' }} />
+            </div>
+            <div>
+              <h3 className="font-bold text-white">Change Password</h3>
+              <p className="text-xs" style={{ color: '#666' }}>Update your account password</p>
+            </div>
+          </div>
+          <form onSubmit={handleChangePassword} className="space-y-4">
             <div>
               <label className="label">Current Password</label>
-              <input type="password" className="input-field" disabled placeholder="••••••••" />
+              <input 
+                type="password" 
+                className="input-field" 
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="Enter current password" 
+                disabled={changingPassword}
+              />
             </div>
             <div>
               <label className="label">New Password</label>
-              <input type="password" className="input-field" disabled placeholder="••••••••" />
+              <input 
+                type="password" 
+                className="input-field" 
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Min. 6 characters" 
+                disabled={changingPassword}
+              />
             </div>
             <div>
               <label className="label">Confirm New Password</label>
-              <input type="password" className="input-field" disabled placeholder="••••••••" />
+              <input 
+                type="password" 
+                className="input-field" 
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Re-enter new password" 
+                disabled={changingPassword}
+              />
             </div>
-            <button disabled className="btn-primary opacity-50 cursor-not-allowed">Update Password</button>
-          </div>
+            <button 
+              type="submit" 
+              disabled={changingPassword} 
+              className="btn-primary flex items-center justify-center gap-2"
+            >
+              {changingPassword && <Loader2 className="w-4 h-4 animate-spin" />}
+              {changingPassword ? 'Updating...' : 'Update Password'}
+            </button>
+          </form>
         </div>
       )}
     </div>

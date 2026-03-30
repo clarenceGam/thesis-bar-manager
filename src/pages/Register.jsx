@@ -25,6 +25,16 @@ const TIMES = (() => {
   return list;
 })();
 
+// Helper function to convert 12-hour time to minutes for comparison
+const convertTo24Hour = (time12h) => {
+  if (!time12h) return 0;
+  const [time, modifier] = time12h.split(' ');
+  let [hours, minutes] = time.split(':').map(Number);
+  if (modifier === 'PM' && hours !== 12) hours += 12;
+  if (modifier === 'AM' && hours === 12) hours = 0;
+  return hours * 60 + minutes;
+};
+
 // ─── Reusable dark input ───
 const DarkInput = ({ label, error, ...props }) => (
   <div>
@@ -167,8 +177,21 @@ const Register = () => {
   const validateStep1 = () => {
     const e = {};
     if (!firstName.trim()) e.firstName = 'First name is required';
+    else if (!/^[a-zA-Z\s]+$/.test(firstName.trim())) e.firstName = 'First name must contain only letters';
+    
+    if (middleName.trim() && !/^[a-zA-Z\s]+$/.test(middleName.trim())) {
+      e.middleName = 'Middle name must contain only letters';
+    }
+    
     if (!lastName.trim()) e.lastName = 'Last name is required';
+    else if (!/^[a-zA-Z\s]+$/.test(lastName.trim())) e.lastName = 'Last name must contain only letters';
+    
     if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = 'Valid email is required';
+    
+    if (phone.trim() && !/^09\d{9}$/.test(phone.trim())) {
+      e.phone = 'Phone number must be 11 digits starting with 09';
+    }
+    
     if (password.length < 6) e.password = 'Password must be at least 6 characters';
     if (password !== confirmPassword) e.confirmPassword = 'Passwords do not match';
     setErrors(e);
@@ -181,11 +204,29 @@ const Register = () => {
     if (!barAddress.trim()) e.barAddress = 'Bar address is required';
     if (!barCity) e.barCity = 'City is required';
     if (!barBarangay) e.barBarangay = 'Barangay is required';
+    if (!barDesc.trim()) e.barDesc = 'Bar description is required';
+    if (barTypes.length === 0) e.barTypes = 'Select at least one bar type';
+    
     if (!gcashNumber.trim()) e.gcashNumber = 'GCash number is required for payouts';
+    else if (!/^\d+$/.test(gcashNumber.trim())) e.gcashNumber = 'GCash number must contain only numbers';
     else if (!/^09\d{9}$/.test(gcashNumber.trim())) e.gcashNumber = 'Must be a valid 09XXXXXXXXX number';
+    
     if (!gcashName.trim()) e.gcashName = 'GCash account name is required';
+    
     const hasValidHours = operatingHours.some(h => h.day && h.open && h.close);
     if (!hasValidHours) e.operatingHours = 'Add at least one operating day with open and close times';
+    
+    // Validate operating hours: end time must be after start time
+    operatingHours.forEach((h, idx) => {
+      if (h.day && h.open && h.close) {
+        const openTime = convertTo24Hour(h.open);
+        const closeTime = convertTo24Hour(h.close);
+        if (closeTime <= openTime) {
+          e.operatingHours = `${h.day}: Closing time must be after opening time`;
+        }
+      }
+    });
+    
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -367,11 +408,11 @@ const Register = () => {
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <DarkInput label="First Name" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Juan" error={errors.firstName} />
-                  <DarkInput label="Middle Name (Optional)" value={middleName} onChange={(e) => setMiddleName(e.target.value)} placeholder="Santos" />
+                  <DarkInput label="Middle Name (Optional)" value={middleName} onChange={(e) => setMiddleName(e.target.value)} placeholder="Santos" error={errors.middleName} />
                   <DarkInput label="Last Name" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="dela Cruz" error={errors.lastName} />
                 </div>
                 <DarkInput label="Email Address" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" error={errors.email} />
-                <DarkInput label="Phone Number" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="09XXXXXXXXX" />
+                <DarkInput label="Phone Number" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="09XXXXXXXXX" error={errors.phone} />
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#666', fontFamily: "'DM Sans', Inter, sans-serif" }}>Password</label>
                   <div className="relative">
@@ -454,12 +495,13 @@ const Register = () => {
                   Platform available in Cavite only
                 </div>
 
-                <DarkTextarea label="Bar Description" value={barDesc} onChange={(e) => setBarDesc(e.target.value)} placeholder="Describe your bar briefly..." />
+                <DarkTextarea label="Bar Description" value={barDesc} onChange={(e) => setBarDesc(e.target.value)} placeholder="Describe your bar briefly..." error={errors.barDesc} />
 
                 <div className="pt-2">
                   <label className="block text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#666', fontFamily: "'DM Sans', Inter, sans-serif" }}>
-                    Bar Type
+                    Bar Type <span style={{ color: '#CC0000' }}>*</span>
                   </label>
+                  {errors.barTypes && <p className="text-xs mb-2" style={{ color: '#ff6666' }}>{errors.barTypes}</p>}
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {BAR_TYPE_OPTIONS.map((opt) => {
                       const checked = barTypes.includes(opt);
