@@ -10,14 +10,14 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import ConfirmModal from '../components/common/ConfirmModal';
 
 const statusColors = {
-  pending:   'badge-warning',
-  approved:  'badge-success',
-  confirmed: 'badge-success',
-  checked_in: 'badge-success',
-  completed: 'badge-gray',
-  no_show: 'badge-danger',
-  rejected:  'badge-danger',
+  pending: 'badge-yellow',
+  approved: 'badge-blue',
+  confirmed: 'badge-green',
+  checked_in: 'badge-green',
+  no_show: 'badge-orange',
+  rejected: 'badge-red',
   cancelled: 'badge-gray',
+  partial: 'badge-yellow',
 };
 
 const ReservationDetail = ({ detail, onClose }) => (
@@ -29,7 +29,11 @@ const ReservationDetail = ({ detail, onClose }) => (
         <p className="text-lg font-bold text-white">#{detail.transaction_number || '—'}</p>
       </div>
       <div className="flex items-center gap-2">
-        <span className={statusColors[detail.status] || 'badge-gray'}>{detail.status}</span>
+        {detail.payment_status === 'partial' ? (
+          <span className={statusColors.partial}>down paid</span>
+        ) : (
+          <span className={statusColors[detail.status] || 'badge-gray'}>{detail.status}</span>
+        )}
         {onClose && (
           <button onClick={onClose} className="p-1 rounded-lg" style={{ color: '#666' }}
             onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; }}
@@ -560,7 +564,11 @@ const Reservations = () => {
                     ) : r.table_number ? `#${r.table_number}` : (r.table_id ? `#${r.table_id}` : '—')}
                   </td>
                   <td className="table-cell">
-                    <span className={statusColors[r.status] || 'badge-gray'}>{r.status}</span>
+                    {r.payment_status === 'partial' ? (
+                      <span className={statusColors.partial}>down paid</span>
+                    ) : (
+                      <span className={statusColors[r.status] || 'badge-gray'}>{r.status}</span>
+                    )}
                     {r.status === 'cancelled' && (r.payment_status === 'paid' || r.payment_status === 'partial') && (
                       <p className="text-xs mt-1 font-semibold" style={{ color: '#f59e0b' }}>⚠ Refund needed</p>
                     )}
