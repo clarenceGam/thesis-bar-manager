@@ -4,7 +4,7 @@ import useAuthStore from '../stores/authStore';
 
 const Settings = () => {
   const { user } = useAuthStore();
-  const [apiUrl, setApiUrl] = useState(import.meta.env.VITE_API_URL || 'http://localhost:3000');
+  const [apiUrl, setApiUrl] = useState(import.meta.env.VITE_API_URL || 'https://api.thepartygoers.fun');
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
