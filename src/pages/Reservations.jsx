@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Check, X as XIcon, Ban, CalendarCheck, Clock, Users, Hash, CreditCard, Package, User, MapPin, FileText, Loader2 } from 'lucide-react';
+import { Search, Check, X as XIcon, Ban, CalendarCheck, Clock, Users, Hash, CreditCard, Package, User, MapPin, FileText, Loader2, DollarSign, Banknote, UserX } from 'lucide-react';
 import { reservationApi } from '../api/reservationApi';
 import { barApi } from '../api/barApi';
 import { usePermission } from '../hooks/usePermission';
@@ -59,10 +59,38 @@ const ReservationDetail = ({ detail, onClose }) => (
             <MapPin className="w-4 h-4" style={{ color: '#CC0000' }} />
             <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#888' }}>Reservation</span>
           </div>
-          <p className="text-sm text-white">
-            <span className="font-medium">Table {detail.table_number || detail.table_id}</span>
-            {detail.capacity && <span style={{ color: '#666' }}> (cap: {detail.capacity})</span>}
-          </p>
+          {detail.tables && detail.tables.length > 0 ? (
+            <>
+              {detail.tables.length === 1 ? (
+                <p className="text-sm text-white">
+                  <span className="font-medium">Table {detail.tables[0].table_number}</span>
+                  {detail.tables[0].capacity && <span style={{ color: '#666' }}> (cap: {detail.tables[0].capacity})</span>}
+                  {detail.tables[0].floor && <span style={{ color: '#666' }}> · Floor {detail.tables[0].floor}</span>}
+                </p>
+              ) : (
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-white">{detail.tables.length} Tables Reserved</p>
+                  <div className="flex flex-wrap gap-1">
+                    {detail.tables.map((table, idx) => (
+                      <span key={idx} className="text-xs px-2 py-0.5 rounded" style={{ background: 'rgba(204,0,0,0.15)', color: '#CC0000' }}>
+                        #{table.table_number}
+                        {table.capacity && ` (${table.capacity})`}
+                        {table.floor && ` · F${table.floor}`}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-xs" style={{ color: '#666' }}>
+                    Total capacity: {detail.tables.reduce((sum, t) => sum + (Number(t.capacity) || 0), 0)} pax
+                  </p>
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-white">
+              <span className="font-medium">Table {detail.table_number || detail.table_id}</span>
+              {detail.capacity && <span style={{ color: '#666' }}> (cap: {detail.capacity})</span>}
+            </p>
+          )}
           {detail.table_price != null && Number(detail.table_price) > 0 && (
             <p className="text-xs" style={{ color: '#aaa' }}>Table rate: <span className="font-medium text-white">₱{Number(detail.table_price).toLocaleString()}</span></p>
           )}
@@ -114,39 +142,74 @@ const ReservationDetail = ({ detail, onClose }) => (
         </div>
       )}
 
-      {/* Payment */}
-      {detail.payment && (
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <CreditCard className="w-4 h-4" style={{ color: '#CC0000' }} />
-            <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#888' }}>Payment</span>
-          </div>
-          <div className="rounded-lg px-4 py-3 space-y-1.5" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+      {/* Payment Breakdown */}
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <CreditCard className="w-4 h-4" style={{ color: '#CC0000' }} />
+          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#888' }}>Payment Summary</span>
+        </div>
+        <div className="rounded-lg px-4 py-3 space-y-1.5" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          {detail.total_amount > 0 && (
             <div className="flex justify-between">
-              <span className="text-xs" style={{ color: '#888' }}>Method</span>
-              <span className="text-sm font-medium text-white capitalize">{detail.payment.payment_method || '—'}</span>
+              <span className="text-xs" style={{ color: '#888' }}>Total Bill</span>
+              <span className="text-sm font-medium text-white">₱{Number(detail.total_amount).toLocaleString()}</span>
             </div>
+          )}
+          {detail.online_payment_amount > 0 && (
             <div className="flex justify-between">
-              <span className="text-xs" style={{ color: '#888' }}>Amount</span>
-              <span className="text-sm font-medium text-white">₱{Number(detail.payment.amount).toLocaleString()}</span>
+              <span className="text-xs" style={{ color: '#888' }}>Paid Online ({detail.online_payment_method || 'online'})</span>
+              <span className="text-sm font-medium" style={{ color: '#4ade80' }}>₱{Number(detail.online_payment_amount).toLocaleString()}</span>
             </div>
+          )}
+          {(() => {
+            const paid = Number(detail.online_payment_amount || detail.deposit_amount || 0);
+            const total = Number(detail.total_amount || 0);
+            const remaining = Math.max(0, total - paid);
+            const isFullyPaid = total > 0 && remaining === 0;
+            const isPartialPaid = total > 0 && paid > 0 && remaining > 0;
+
+            if (isFullyPaid) {
+              return (
+                <div className="flex justify-between pt-1" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                  <span className="text-xs font-semibold" style={{ color: '#4ade80' }}>Fully Paid ✓</span>
+                  <span className="text-sm font-bold" style={{ color: '#4ade80' }}>₱0.00 remaining</span>
+                </div>
+              );
+            }
+            if (isPartialPaid) {
+              return (
+                <div className="flex justify-between pt-1" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                  <span className="text-xs font-semibold" style={{ color: '#fbbf24' }}>Remaining Balance (collect in person)</span>
+                  <span className="text-sm font-bold" style={{ color: '#fbbf24' }}>₱{remaining.toLocaleString()}</span>
+                </div>
+              );
+            }
+            return null;
+          })()}
+          {detail.online_paid_at && (
             <div className="flex justify-between">
-              <span className="text-xs" style={{ color: '#888' }}>Status</span>
-              <span className="text-sm font-medium" style={{ color: detail.payment.status === 'paid' ? '#4ade80' : '#fbbf24' }}>{detail.payment.status}</span>
+              <span className="text-xs" style={{ color: '#888' }}>Online paid at</span>
+              <span className="text-sm" style={{ color: '#ccc' }}>{format(parseUTC(detail.online_paid_at), 'MMM d, yyyy h:mm a')}</span>
             </div>
-            {detail.payment.paid_at && (
-              <div className="flex justify-between">
-                <span className="text-xs" style={{ color: '#888' }}>Paid at</span>
-                <span className="text-sm" style={{ color: '#ccc' }}>{format(parseUTC(detail.payment.paid_at), 'MMM d, yyyy h:mm a')}</span>
-              </div>
-            )}
-            {detail.payment.reference_id && (
-              <div className="flex justify-between">
-                <span className="text-xs" style={{ color: '#888' }}>Ref</span>
-                <span className="text-xs font-mono" style={{ color: '#666' }}>{detail.payment.reference_id}</span>
-              </div>
-            )}
-          </div>
+          )}
+          {detail.online_reference && (
+            <div className="flex justify-between">
+              <span className="text-xs" style={{ color: '#888' }}>Reference</span>
+              <span className="text-xs font-mono" style={{ color: '#666' }}>{detail.online_reference}</span>
+            </div>
+          )}
+          {!detail.online_payment_amount && detail.deposit_amount > 0 && (
+            <div className="flex justify-between">
+              <span className="text-xs" style={{ color: '#888' }}>Deposit</span>
+              <span className="text-sm font-medium" style={{ color: '#4ade80' }}>₱{Number(detail.deposit_amount).toLocaleString()}</span>
+            </div>
+          )}
+        </div>
+      </div>
+      {detail.payment && detail.payment.reference_id && (
+        <div className="rounded-lg px-3 py-2" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+          <span className="text-xs" style={{ color: '#555' }}>PayMongo ref: </span>
+          <span className="text-xs font-mono" style={{ color: '#555' }}>{detail.payment.reference_id}</span>
         </div>
       )}
 
@@ -176,6 +239,7 @@ const Reservations = () => {
   const [txnDetail, setTxnDetail] = useState(null);
   const [selectedReservation, setSelectedReservation] = useState(null);
   const [rowLoading, setRowLoading] = useState(null);
+  const [markingPaid, setMarkingPaid] = useState(null);
   const [barDetails, setBarDetails] = useState(null);
   const [timeLimitMinutes, setTimeLimitMinutes] = useState(120);
   const [timeLimitSaving, setTimeLimitSaving] = useState(false);
@@ -238,11 +302,19 @@ const Reservations = () => {
       else if (action === 'rejected') await reservationApi.reject(id);
       else if (action === 'check_in') await reservationApi.checkIn(id);
       else if (action === 'complete') await reservationApi.complete(id);
+      else if (action === 'no_show') await reservationApi.noShow(id);
+      else if (action === 'mark_balance_paid') {
+        const { data } = await reservationApi.markBalancePaid(id);
+        toast.success(data.message || 'Balance marked as paid!');
+        setConfirmModal({ isOpen: false, id: null, action: null });
+        load();
+        return;
+      }
       else await reservationApi.cancel(id);
       toast.success('Reservation updated');
       setConfirmModal({ isOpen: false, id: null, action: null });
       load();
-    } catch { toast.error('Failed to update reservation'); }
+    } catch (e) { toast.error(e?.response?.data?.message || 'Failed to update reservation'); }
   };
 
   const fetchDetail = useCallback(async (txn) => {
@@ -476,18 +548,51 @@ const Reservations = () => {
                   <td className="table-cell">
                     <div className="flex items-center gap-1" style={{ color: '#ccc' }}><Users className="w-3.5 h-3.5" style={{ color: '#555' }} /> {r.party_size || '—'}</div>
                   </td>
-                  <td className="table-cell">{r.table_number ? `#${r.table_number}` : (r.table_id ? `#${r.table_id}` : '—')}</td>
+                  <td className="table-cell">
+                    {r.tables && r.tables.length > 1 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {r.tables.map((t, idx) => (
+                          <span key={idx} className="text-xs px-1.5 py-0.5 rounded" style={{ background: 'rgba(204,0,0,0.1)', color: '#CC0000' }}>
+                            #{t.table_number}
+                          </span>
+                        ))}
+                      </div>
+                    ) : r.table_number ? `#${r.table_number}` : (r.table_id ? `#${r.table_id}` : '—')}
+                  </td>
                   <td className="table-cell">
                     <span className={statusColors[r.status] || 'badge-gray'}>{r.status}</span>
-                    {r.status === 'cancelled' && r.payment_status === 'paid' && (
+                    {r.status === 'cancelled' && (r.payment_status === 'paid' || r.payment_status === 'partial') && (
                       <p className="text-xs mt-1 font-semibold" style={{ color: '#f59e0b' }}>⚠ Refund needed</p>
                     )}
                   </td>
                   <td className="table-cell">
-                    <span className="text-xs font-medium" style={{ color: r.payment_status === 'paid' ? '#4ade80' : '#666' }}>
-                      {r.payment_status || '—'}
-                    </span>
-                    {r.deposit_amount > 0 && <p className="text-xs" style={{ color: '#666' }}>₱{Number(r.deposit_amount).toLocaleString()}</p>}
+                    {(() => {
+                      const paid = Number(r.online_payment_amount || r.deposit_amount || 0);
+                      const total = Number(r.total_amount || 0);
+                      const isPartial = r.payment_status === 'partial' || (r.payment_status === 'paid' && total > 0 && paid < total);
+                      const isFullyPaid = !isPartial && r.payment_status === 'paid';
+                      if (isFullyPaid) return (
+                        <span className="text-xs font-semibold" style={{ color: '#4ade80' }}>Fully Paid ✓</span>
+                      );
+                      if (isPartial) return (
+                        <div>
+                          <span className="text-xs font-semibold" style={{ color: '#fbbf24' }}>Down Payment</span>
+                          <p className="text-xs" style={{ color: '#4ade80' }}>Online: ₱{paid.toLocaleString()}</p>
+                          {total > 0 && (
+                            <p className="text-xs font-semibold" style={{ color: '#fbbf24' }}>
+                              Balance: ₱{Math.max(0, total - paid).toLocaleString()}
+                            </p>
+                          )}
+                        </div>
+                      );
+                      if (r.online_payment_amount > 0) return (
+                        <div>
+                          <span className="text-xs font-semibold" style={{ color: '#fbbf24' }}>Partial</span>
+                          <p className="text-xs" style={{ color: '#4ade80' }}>Online: ₱{Number(r.online_payment_amount).toLocaleString()}</p>
+                        </div>
+                      );
+                      return <span className="text-xs" style={{ color: '#666' }}>{r.payment_status || 'unpaid'}</span>;
+                    })()}
                   </td>
                   {can('RESERVATION_MANAGE') && (
                     <td className="table-cell text-right">
@@ -512,12 +617,20 @@ const Reservations = () => {
                         </button>
                       )}
                       {r.status === 'confirmed' && (
-                        <button onClick={(e) => { e.stopPropagation(); handleAction(r.id, 'check_in'); }} className="p-1.5 rounded-lg transition-colors" style={{ color: '#4ade80' }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(34,197,94,0.1)'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                          title="Check In">
-                          <CalendarCheck className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          <button onClick={(e) => { e.stopPropagation(); handleAction(r.id, 'check_in'); }} className="p-1.5 rounded-lg transition-colors" style={{ color: '#4ade80' }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(34,197,94,0.1)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                            title="Check In">
+                            <CalendarCheck className="w-4 h-4" />
+                          </button>
+                          <button onClick={(e) => { e.stopPropagation(); handleAction(r.id, 'no_show'); }} className="p-1.5 rounded-lg transition-colors" style={{ color: '#f59e0b' }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(245,158,11,0.1)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                            title="Mark No Show">
+                            <UserX className="w-4 h-4" />
+                          </button>
+                        </div>
                       )}
                       {r.status === 'checked_in' && (
                         <button onClick={(e) => { e.stopPropagation(); handleAction(r.id, 'complete'); }} className="p-1.5 rounded-lg transition-colors" style={{ color: '#4ade80' }}
@@ -525,6 +638,17 @@ const Reservations = () => {
                           onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                           title="Mark Completed">
                           <Check className="w-4 h-4" />
+                        </button>
+                      )}
+                      {['approved','confirmed','checked_in'].includes(r.status) && r.online_payment_amount > 0 && Number(r.total_amount || 0) > 0 && Number(r.online_payment_amount) < Number(r.total_amount) && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleAction(r.id, 'mark_balance_paid'); }}
+                          className="p-1.5 rounded-lg transition-colors"
+                          style={{ color: '#fbbf24' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(251,191,36,0.1)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                          title="Mark Balance Paid (cash in person)">
+                          <Banknote className="w-4 h-4" />
                         </button>
                       )}
                     </td>
@@ -566,6 +690,8 @@ const Reservations = () => {
           confirmModal.action === 'rejected' ? 'Reject Reservation?' :
           confirmModal.action === 'check_in' ? 'Check In Customer?' :
           confirmModal.action === 'complete' ? 'Mark Reservation Completed?' :
+          confirmModal.action === 'no_show' ? 'Mark as No Show?' :
+          confirmModal.action === 'mark_balance_paid' ? 'Mark Remaining Balance as Paid?' :
           'Cancel Reservation?'
         }
         message={
@@ -573,6 +699,8 @@ const Reservations = () => {
           confirmModal.action === 'rejected' ? 'This reservation will be rejected and the customer will be notified.' :
           confirmModal.action === 'check_in' ? 'This will mark the customer as checked in.' :
           confirmModal.action === 'complete' ? 'This will release the table for new reservations.' :
+          confirmModal.action === 'no_show' ? 'This will mark the customer as a no-show. Their reservation status will be updated.' :
+          confirmModal.action === 'mark_balance_paid' ? 'Confirm that the customer has paid the remaining balance in person (cash). This will mark the reservation as fully paid.' :
           'This reservation will be cancelled.'
         }
         confirmText={
@@ -580,9 +708,11 @@ const Reservations = () => {
           confirmModal.action === 'rejected' ? 'Reject' :
           confirmModal.action === 'check_in' ? 'Check In' :
           confirmModal.action === 'complete' ? 'Complete' :
+          confirmModal.action === 'no_show' ? 'Mark No Show' :
+          confirmModal.action === 'mark_balance_paid' ? 'Confirm Paid' :
           'Cancel'
         }
-        type={confirmModal.action === 'approved' ? 'info' : confirmModal.action === 'check_in' || confirmModal.action === 'complete' ? 'info' : 'danger'}
+        type={confirmModal.action === 'approved' ? 'info' : confirmModal.action === 'check_in' || confirmModal.action === 'complete' || confirmModal.action === 'mark_balance_paid' ? 'info' : confirmModal.action === 'no_show' ? 'danger' : 'danger'}
       />
     </div>
   );
