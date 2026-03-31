@@ -648,7 +648,7 @@ const Reservations = () => {
                           <Check className="w-4 h-4" />
                         </button>
                       )}
-                      {['approved','confirmed','checked_in'].includes(r.status) && r.online_payment_amount > 0 && Number(r.total_amount || 0) > 0 && Number(r.online_payment_amount) < Number(r.total_amount) && (
+                      {(r.payment_status === 'partial' || (['approved','confirmed','checked_in'].includes(r.status) && r.online_payment_amount > 0 && Number(r.total_amount || 0) > 0 && Number(r.online_payment_amount) < Number(r.total_amount))) && r.payment_status !== 'paid' && (
                         <button
                           onClick={(e) => { e.stopPropagation(); handleAction(r.id, 'mark_balance_paid'); }}
                           className="p-1.5 rounded-lg transition-colors"
