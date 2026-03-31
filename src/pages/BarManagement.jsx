@@ -1,22 +1,83 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, Upload, MapPin, Clock, Loader2, Receipt, FileText, Users } from 'lucide-react';
+import { Save, Upload, MapPin, Clock, Loader2, Receipt, FileText, Users, CreditCard } from 'lucide-react';
 import { barApi } from '../api/barApi';
 import { getUploadUrl } from '../api/apiClient';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+const BAR_TYPE_OPTIONS = ['Restobar', 'Bar', 'Club', 'Comedy Bar', 'KTV'];
 const DEFAULT_COORDS = { lat: 14.3500, lng: 120.9200 };
+
+// Generate time options (12-hour format with 30-minute intervals)
+const TIMES = (() => {
+  const list = [];
+  for (let h = 0; h < 24; h++) {
+    for (const m of [0, 30]) {
+      const hour = h % 12 === 0 ? 12 : h % 12;
+      const ampm = h < 12 ? 'AM' : 'PM';
+      list.push(`${hour}:${m === 0 ? '00' : '30'} ${ampm}`);
+    }
+  }
+  return list;
+})();
 
 // Cavite province bounding box
 const CAVITE_BOUNDS = [[13.90, 120.50], [14.65, 121.25]];
+
+const normalizeBarTypes = (rawBarTypes, fallbackCategory = '') => {
+  let parsed = [];
+
+  if (Array.isArray(rawBarTypes)) {
+    parsed = rawBarTypes;
+  } else if (typeof rawBarTypes === 'string' && rawBarTypes.trim()) {
+    try {
+      const json = JSON.parse(rawBarTypes);
+      parsed = Array.isArray(json) ? json : [rawBarTypes];
+    } catch {
+      parsed = [rawBarTypes];
+    }
+  }
+
+  const normalized = parsed.flatMap((value) => {
+    const label = String(value || '').trim();
+    if (!label) return [];
+
+    const lower = label.toLowerCase();
+    if (lower === 'bar / club' || lower === 'bar/club') return ['Bar', 'Club'];
+    if (lower === 'restobar') return ['Restobar'];
+    if (lower === 'club') return ['Club'];
+    if (lower === 'comedy bar') return ['Comedy Bar'];
+    if (lower === 'ktv') return ['KTV'];
+    if (lower === 'bar') return ['Bar'];
+    return [label];
+  });
+
+  const unique = [...new Set(normalized)];
+  if (unique.length) return unique;
+
+  const fallback = String(fallbackCategory || '').trim();
+  if (!fallback) return [];
+
+  const lowerFallback = fallback.toLowerCase();
+  if (lowerFallback === 'restobar') return ['Restobar'];
+  if (lowerFallback === 'club') return ['Club'];
+  if (lowerFallback === 'comedy bar') return ['Comedy Bar'];
+  if (lowerFallback === 'ktv') return ['KTV'];
+  if (lowerFallback === 'bar') return ['Bar'];
+  return [fallback];
+};
 
 const BarManagement = () => {
   const [bar, setBar] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({});
+  const [dayHours, setDayHours] = useState(
+    DAYS.reduce((acc, d) => ({ ...acc, [d]: { open: '', close: '' } }), {})
+  );
   const [staffTypes, setStaffTypes] = useState([]);
+  const [barTypes, setBarTypes] = useState([]);
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [mapFullscreen, setMapFullscreen] = useState(false);
   const [mapReady, setMapReady] = useState(false);
@@ -46,6 +107,15 @@ const BarManagement = () => {
       const d = data.data || data;
       setBar(d);
       setForm(d);
+      // Parse day hours into separate open/close per day
+      const parsedDayHours = {};
+      DAYS.forEach(day => {
+        const val = d[`${day}_hours`] || '';
+        const hasSep = val.includes('\u2013') || val.includes('-');
+        const parts = hasSep ? val.split(/[\u2013-]/).map(t => t.trim()) : [];
+        parsedDayHours[day] = { open: parts[0] || '', close: parts[1] || '' };
+      });
+      setDayHours(parsedDayHours);
       // Parse staff_types from JSON
       if (d.staff_types) {
         try {
@@ -56,6 +126,16 @@ const BarManagement = () => {
         }
       } else {
         setStaffTypes([]);
+      }
+      // Parse bar_types from JSON
+      if (d.bar_types) {
+        try {
+          setBarTypes(normalizeBarTypes(d.bar_types, d.category));
+        } catch {
+          setBarTypes(normalizeBarTypes([], d.category));
+        }
+      } else {
+        setBarTypes(normalizeBarTypes([], d.category));
       }
     } catch { /* handled by interceptor */ } finally {
       setLoading(false);
@@ -298,12 +378,17 @@ const BarManagement = () => {
     try {
       const { name, description, address, city, state, zip_code, phone, contact_number, email, website, category, price_range, latitude, longitude, accept_cash_payment, accept_online_payment, accept_gcash, minimum_reservation_deposit, gcash_number, gcash_account_name } = form;
       const hours = {};
-      DAYS.forEach((d) => { hours[`${d}_hours`] = form[`${d}_hours`] || ''; });
+      DAYS.forEach((d) => {
+        const { open, close } = dayHours[d] || {};
+        hours[`${d}_hours`] = open && close ? `${open} \u2013 ${close}` : (open || close || '');
+      });
       await barApi.updateDetails({ 
         name, description, address, city, state, zip_code, phone, contact_number, email, website, category, price_range, latitude, longitude, 
-        accept_cash_payment, accept_online_payment, accept_gcash, minimum_reservation_deposit, 
+        accept_cash_payment, accept_online_payment, accept_gcash, 
+        minimum_reservation_deposit: minimum_reservation_deposit ? Number(minimum_reservation_deposit) : 0, 
         gcash_number, gcash_account_name,
         staff_types: staffTypes,
+        bar_types: normalizeBarTypes(barTypes, category),
         ...hours 
       });
       toast.success('Bar details updated!');
@@ -315,6 +400,12 @@ const BarManagement = () => {
 
   const toggleStaffType = (type) => {
     setStaffTypes(prev => 
+      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
+    );
+  };
+
+  const toggleBarType = (type) => {
+    setBarTypes(prev =>
       prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
     );
   };
@@ -399,7 +490,6 @@ const BarManagement = () => {
             { key: 'price_range', label: 'Price Range' },
             { key: 'latitude', label: 'Latitude' },
             { key: 'longitude', label: 'Longitude' },
-            { key: 'minimum_reservation_deposit', label: 'Min Reservation Deposit' },
           ].map(({ key, label, type }) => (
             <div key={key} className={type === 'textarea' ? 'md:col-span-2' : ''}>
               <label className="label">{label}</label>
@@ -410,6 +500,21 @@ const BarManagement = () => {
               )}
             </div>
           ))}
+          
+          <div>
+            <label className="label">Min Reservation Deposit (%)</label>
+            <input 
+              type="number" 
+              min="0" 
+              max="100" 
+              step="1"
+              value={form.minimum_reservation_deposit || ''} 
+              onChange={(e) => handleChange('minimum_reservation_deposit', e.target.value)} 
+              className="input-field" 
+              placeholder="e.g., 50 for 50%"
+            />
+            <p className="text-xs mt-1" style={{ color: '#666' }}>Percentage of total order amount required as deposit (0-100%)</p>
+          </div>
 
           <div className="md:col-span-2">
             <label className="label">Location Picker</label>
@@ -460,6 +565,29 @@ const BarManagement = () => {
           </div>
         </div>
 
+        {/* Bar Types Section */}
+        <div className="mt-6 p-4 rounded-lg" style={{ background: 'rgba(204,0,0,0.06)', border: '1px solid rgba(204,0,0,0.2)' }}>
+          <h4 className="font-semibold text-white mb-2 flex items-center gap-2">
+            <Receipt className="w-5 h-5" style={{ color: '#CC0000' }} />
+            Bar Types
+          </h4>
+          <p className="text-xs mb-3" style={{ color: '#888' }}>Select the type(s) that best describe your establishment. This determines what sections customers see.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {BAR_TYPE_OPTIONS.map((type) => (
+              <label key={type} className="flex items-center gap-2 p-3 rounded-lg cursor-pointer transition-colors" style={{ background: barTypes.includes(type) ? 'rgba(204,0,0,0.15)' : 'rgba(255,255,255,0.03)', border: barTypes.includes(type) ? '1px solid rgba(204,0,0,0.3)' : '1px solid rgba(255,255,255,0.06)' }}>
+                <input
+                  type="checkbox"
+                  checked={barTypes.includes(type)}
+                  onChange={() => toggleBarType(type)}
+                  className="w-4 h-4 rounded"
+                  style={{ accentColor: '#CC0000' }}
+                />
+                <span className="text-sm font-medium" style={{ color: barTypes.includes(type) ? '#fff' : '#ccc' }}>{type}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
         {/* Staff Types Section */}
         <div className="mt-6 p-4 rounded-lg" style={{ background: 'rgba(204,0,0,0.06)', border: '1px solid rgba(204,0,0,0.2)' }}>
           <h4 className="font-semibold text-white mb-2 flex items-center gap-2">
@@ -495,14 +623,33 @@ const BarManagement = () => {
           <Clock className="w-5 h-5" style={{ color: '#CC0000' }} />
           <h3 className="text-lg font-bold text-white">Operating Hours</h3>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {DAYS.map((day) => (
-            <div key={day}>
-              <label className="label capitalize">{day}</label>
-              <input value={form[`${day}_hours`] || ''} onChange={(e) => handleChange(`${day}_hours`, e.target.value)} className="input-field" placeholder="e.g. 6PM - 2AM" />
-            </div>
-          ))}
+        <div className="space-y-3">
+          {DAYS.map((day) => {
+            const { open: openTime, close: closeTime } = dayHours[day] || { open: '', close: '' };
+            return (
+              <div key={day} className="grid grid-cols-[120px_1fr_1fr] gap-3 items-center">
+                <label className="label capitalize mb-0">{day}</label>
+                <select
+                  value={openTime}
+                  onChange={(e) => setDayHours(prev => ({ ...prev, [day]: { ...prev[day], open: e.target.value } }))}
+                  className="input-field"
+                >
+                  <option value="">Opens...</option>
+                  {TIMES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <select
+                  value={closeTime}
+                  onChange={(e) => setDayHours(prev => ({ ...prev, [day]: { ...prev[day], close: e.target.value } }))}
+                  className="input-field"
+                >
+                  <option value="">Closes...</option>
+                  {TIMES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+            );
+          })}
         </div>
+        <p className="text-xs mt-3" style={{ color: '#666' }}>Select opening and closing times for each day. Leave blank for days when the bar is closed.</p>
       </div>
 
       {/* Media Preview */}
@@ -551,6 +698,54 @@ const BarManagement = () => {
                 <Upload className="w-5 h-5 text-white" />
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Payment Acceptance Settings */}
+      <div className="card">
+        <div className="flex items-center gap-2 mb-4">
+          <CreditCard className="w-5 h-5" style={{ color: '#CC0000' }} />
+          <h3 className="text-lg font-bold text-white">Payment Acceptance</h3>
+        </div>
+        <p className="text-xs mb-4" style={{ color: '#888' }}>
+          Configure which payment methods your bar accepts from customers for online reservations.
+        </p>
+        <div className="space-y-3">
+          <div className="rounded-xl p-4 flex items-center justify-between" style={{ background: '#161616', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div>
+              <p className="font-medium text-white text-sm">Accept Online Payments</p>
+              <p className="text-xs mt-0.5" style={{ color: '#888' }}>Allow customers to pay online via GCash or Card/PayMaya</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleChange('accept_online_payment', form.accept_online_payment === 1 ? 0 : 1)}
+              className="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out"
+              style={{ background: form.accept_online_payment === 1 ? '#CC0000' : '#333' }}
+            >
+              <span
+                className="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                style={{ transform: form.accept_online_payment === 1 ? 'translateX(20px)' : 'translateX(0)' }}
+              />
+            </button>
+          </div>
+          
+          <div className="rounded-xl p-4 flex items-center justify-between" style={{ background: '#161616', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div>
+              <p className="font-medium text-white text-sm">Accept GCash</p>
+              <p className="text-xs mt-0.5" style={{ color: '#888' }}>Enable GCash as a payment option for customers</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleChange('accept_gcash', form.accept_gcash === 1 ? 0 : 1)}
+              className="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out"
+              style={{ background: form.accept_gcash === 1 ? '#CC0000' : '#333' }}
+            >
+              <span
+                className="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                style={{ transform: form.accept_gcash === 1 ? 'translateX(20px)' : 'translateX(0)' }}
+              />
+            </button>
           </div>
         </div>
       </div>
