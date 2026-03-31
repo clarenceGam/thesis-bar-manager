@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, X, Loader2, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { inventoryRequestApi } from '../api/inventoryRequestApi';
+import { inventoryApi } from '../api/inventoryApi';
 import { usePermission } from '../hooks/usePermission';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../components/common/LoadingSpinner';
@@ -11,14 +12,31 @@ const InventoryRequests = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ item_name: '', quantity_needed: '', unit: 'Piece', reason: '', cost_price: '', reorder_level: '' });
+  const [form, setForm] = useState({ 
+    item_name: '', 
+    quantity_needed: '', 
+    unit: 'Piece', 
+    reason: '', 
+    cost_price: '', 
+    reorder_level: '',
+    is_restock: false,
+    selected_item: null
+  });
   const { can, isOwner } = usePermission();
   const [activeTab, setActiveTab] = useState(() => isOwner ? 'all' : 'my');
   const [statusFilter, setStatusFilter] = useState(null);
   const [rejectModal, setRejectModal] = useState({ isOpen: false, id: null, rejectionNote: '' });
   const [processing, setProcessing] = useState(null);
+  const [inventoryItems, setInventoryItems] = useState([]);
 
-  useEffect(() => { load(); }, [activeTab, statusFilter]);
+  useEffect(() => { load(); if (!isOwner) loadInventoryItems(); }, [activeTab, statusFilter]);
+
+  const loadInventoryItems = async () => {
+    try {
+      const { data } = await inventoryApi.list();
+      setInventoryItems(data.data || data || []);
+    } catch {} 
+  };
 
   const load = async () => {
     try {
@@ -34,7 +52,16 @@ const InventoryRequests = () => {
   };
 
   const openCreate = () => {
-    setForm({ item_name: '', quantity_needed: '', unit: 'Piece', reason: '', cost_price: '', reorder_level: '' });
+    setForm({ 
+      item_name: '', 
+      quantity_needed: '', 
+      unit: 'Piece', 
+      reason: '', 
+      cost_price: '', 
+      reorder_level: '',
+      is_restock: false,
+      selected_item: null
+    });
     setShowModal(true);
   };
 
@@ -230,13 +257,64 @@ const InventoryRequests = () => {
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
+                <label className="label">Request Type</label>
+                <select 
+                  value={form.is_restock ? 'restock' : 'new'} 
+                  onChange={(e) => {
+                    const isRestock = e.target.value === 'restock';
+                    setForm({ 
+                      ...form, 
+                      is_restock: isRestock,
+                      item_name: isRestock ? '' : form.item_name,
+                      unit: isRestock ? (form.selected_item?.unit || 'Piece') : form.unit,
+                      cost_price: isRestock ? (form.selected_item?.cost_price || '') : form.cost_price,
+                      reorder_level: isRestock ? (form.selected_item?.reorder_level || '') : form.reorder_level
+                    });
+                  }} 
+                  className="input-field" 
+                >
+                  <option value="new">New Item</option>
+                  <option value="restock">Restock Existing Item</option>
+                </select>
+              </div>
+              {form.is_restock && (
+                <div>
+                  <label className="label">Select Item to Restock *</label>
+                  <select 
+                    value={form.selected_item?.id || ''} 
+                    onChange={(e) => {
+                      const item = inventoryItems.find(i => i.id === Number(e.target.value));
+                      setForm({ 
+                        ...form, 
+                        selected_item: item,
+                        item_name: item?.name || '',
+                        unit: item?.unit || 'Piece',
+                        cost_price: item?.cost_price?.toString() || '',
+                        reorder_level: item?.reorder_level?.toString() || ''
+                      });
+                    }} 
+                    className="input-field" 
+                    required
+                  >
+                    <option value="">Select an item...</option>
+                    {inventoryItems.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name} ({item.unit}) - Current Stock: {item.stock_qty}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div>
                 <label className="label">Item Name *</label>
                 <input 
                   value={form.item_name} 
                   onChange={(e) => setForm({ ...form, item_name: e.target.value })} 
                   className="input-field" 
                   required 
-                  placeholder="e.g., San Miguel Beer, Napkins"
+                  placeholder={form.is_restock ? "Item name will be auto-selected" : "e.g., San Miguel Beer, Napkins"}
+                  readOnly={form.is_restock}
+                  style={{ opacity: form.is_restock ? 0.5 : 1 }}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -253,7 +331,14 @@ const InventoryRequests = () => {
                 </div>
                 <div>
                   <label className="label">Unit *</label>
-                  <select value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="input-field" required>
+                  <select 
+                    value={form.unit} 
+                    onChange={(e) => setForm({ ...form, unit: e.target.value })} 
+                    className="input-field" 
+                    required
+                    disabled={form.is_restock}
+                    style={{ opacity: form.is_restock ? 0.5 : 1 }}
+                  >
                     <option value="Bottle">Bottle</option>
                     <option value="Bucket">Bucket</option>
                     <option value="Case (12 bottles)">Case (12 bottles)</option>
