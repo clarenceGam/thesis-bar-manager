@@ -11,14 +11,12 @@ const InventoryRequests = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ item_name: '', quantity_needed: '', unit: 'Piece', reason: '' });
-  const { can } = usePermission();
-  const [activeTab, setActiveTab] = useState('my'); // 'my' or 'all'
+  const [form, setForm] = useState({ item_name: '', quantity_needed: '', unit: 'Piece', reason: '', cost_price: '', reorder_level: '' });
+  const { can, isOwner } = usePermission();
+  const [activeTab, setActiveTab] = useState(() => isOwner ? 'all' : 'my');
   const [statusFilter, setStatusFilter] = useState(null);
   const [rejectModal, setRejectModal] = useState({ isOpen: false, id: null, rejectionNote: '' });
   const [processing, setProcessing] = useState(null);
-
-  const isOwner = can('menu_update');
 
   useEffect(() => { load(); }, [activeTab, statusFilter]);
 
@@ -36,7 +34,7 @@ const InventoryRequests = () => {
   };
 
   const openCreate = () => {
-    setForm({ item_name: '', quantity_needed: '', unit: 'Piece', reason: '' });
+    setForm({ item_name: '', quantity_needed: '', unit: 'Piece', reason: '', cost_price: '', reorder_level: '' });
     setShowModal(true);
   };
 
@@ -48,7 +46,9 @@ const InventoryRequests = () => {
         item_name: form.item_name,
         quantity_needed: Number(form.quantity_needed),
         unit: form.unit,
-        reason: form.reason
+        reason: form.reason,
+        cost_price: Number(form.cost_price) || null,
+        reorder_level: Number(form.reorder_level) || null
       });
       toast.success('Request submitted!');
       setShowModal(false);
@@ -99,34 +99,19 @@ const InventoryRequests = () => {
             {isOwner ? 'Manage inventory requests from staff' : 'Submit and track your inventory requests'}
           </p>
         </div>
-        <button onClick={openCreate} className="btn-primary flex items-center gap-2">
-          <Plus className="w-4 h-4" /> New Request
-        </button>
+        {!isOwner && (
+          <button onClick={openCreate} className="btn-primary flex items-center gap-2">
+            <Plus className="w-4 h-4" /> New Request
+          </button>
+        )}
       </div>
 
-      {/* Tabs (Owner only) */}
+      {/* Tabs (Owner only sees All Requests) */}
       {isOwner && (
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => { setActiveTab('my'); setStatusFilter(null); }}
-            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-              activeTab === 'my'
-                ? 'bg-red-900/30 text-white border border-red-800/50'
-                : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
-            }`}
-          >
-            My Requests
-          </button>
-          <button
-            onClick={() => { setActiveTab('all'); setStatusFilter(null); }}
-            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-              activeTab === 'all'
-                ? 'bg-red-900/30 text-white border border-red-800/50'
-                : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
-            }`}
-          >
+          <span className="px-4 py-2 rounded-lg font-medium text-sm bg-red-900/30 text-white border border-red-800/50">
             All Requests
-          </button>
+          </span>
         </div>
       )}
 
@@ -277,6 +262,31 @@ const InventoryRequests = () => {
                     <option value="Kilogram">Kilogram</option>
                     <option value="Piece">Piece</option>
                   </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Cost Price (per unit)</label>
+                  <input 
+                    type="number" 
+                    min="0"
+                    step="0.01"
+                    value={form.cost_price} 
+                    onChange={(e) => setForm({ ...form, cost_price: e.target.value })} 
+                    className="input-field" 
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="label">Reorder Level</label>
+                  <input 
+                    type="number" 
+                    min="0"
+                    value={form.reorder_level} 
+                    onChange={(e) => setForm({ ...form, reorder_level: e.target.value })} 
+                    className="input-field" 
+                    placeholder="Min stock before reorder"
+                  />
                 </div>
               </div>
               <div>
