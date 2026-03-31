@@ -72,11 +72,11 @@ const Staff = () => {
     setSaving(true);
     try {
       if (editing) {
-        const payload = { first_name: form.first_name, last_name: form.last_name, email: form.email, phone_number: form.phone_number, role: form.role, staff_type: supportsStaffType ? form.staff_type || null : undefined };
+        const payload = { first_name: form.first_name, last_name: form.last_name, email: form.email, phone_number: form.phone_number, role: form.role, staff_type: form.staff_type || null };
         await staffApi.update(editing.id, payload);
         toast.success('User updated!');
       } else {
-        await staffApi.create({ ...form, staff_type: supportsStaffType ? form.staff_type || null : undefined });
+        await staffApi.create({ ...form, staff_type: form.staff_type || null });
         toast.success('User created!');
       }
       setShowModal(false);
@@ -85,6 +85,8 @@ const Staff = () => {
   };
 
   const staffTypeOptions = Array.from(new Set([...(staffTypes || []), ...(form.staff_type ? [form.staff_type] : [])]));
+  const showStaffTypeField = true;
+  const showStaffTypeColumn = supportsStaffType || users.some((u) => u.staff_type) || archived.some((u) => u.staff_type);
 
   const handleToggle = async (id) => {
     setConfirmModal({
@@ -307,7 +309,7 @@ const Staff = () => {
                 <th className="table-header">Name</th>
                 <th className="table-header">Email</th>
                 <th className="table-header">Role</th>
-                {supportsStaffType && <th className="table-header">Staff Type</th>}
+                {showStaffTypeColumn && <th className="table-header">Staff Type</th>}
                 <th className="table-header">Status</th>
                 <th className="table-header text-right">Actions</th>
               </tr>
@@ -328,7 +330,7 @@ const Staff = () => {
                   </td>
                   <td className="table-cell" style={{ color: '#888' }}>{u.email}</td>
                   <td className="table-cell"><span className={roleColor(u.role)}>{toRoleLabel(u.role)}</span></td>
-                  {supportsStaffType && <td className="table-cell" style={{ color: '#ccc' }}>{u.staff_type || '—'}</td>}
+                  {showStaffTypeColumn && <td className="table-cell" style={{ color: '#ccc' }}>{u.staff_type || '—'}</td>}
                   <td className="table-cell">
                     <span className={u.is_active ? 'badge-success' : 'badge-gray'}>
                       {u.is_active ? 'Active' : 'Inactive'}
@@ -356,7 +358,7 @@ const Staff = () => {
                   </td>
                 </tr>
               ))}
-              {filtered.length === 0 && <tr><td colSpan={supportsStaffType ? 6 : 5} className="text-center py-8" style={{ color: '#555' }}>No staff found.</td></tr>}
+              {filtered.length === 0 && <tr><td colSpan={showStaffTypeColumn ? 6 : 5} className="text-center py-8" style={{ color: '#555' }}>No staff found.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -387,7 +389,7 @@ const Staff = () => {
                   <option value="manager">Manager</option>
                 </select>
               </div>
-              {supportsStaffType && (
+              {showStaffTypeField && (
                 <div>
                   <label className="label">Staff Type Label</label>
                   <select value={form.staff_type || ''} onChange={(e) => setForm({ ...form, staff_type: e.target.value })} className="input-field" disabled={staffTypeOptions.length === 0}>
