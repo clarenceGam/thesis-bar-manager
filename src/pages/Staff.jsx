@@ -9,6 +9,8 @@ import ConfirmModal from '../components/common/ConfirmModal';
 const Staff = () => {
   const [users, setUsers] = useState([]);
   const [archived, setArchived] = useState([]);
+  const [staffTypes, setStaffTypes] = useState([]);
+  const [supportsStaffType, setSupportsStaffType] = useState(false);
   const [roles, setRoles] = useState([]);
   const [permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,7 +22,7 @@ const Staff = () => {
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, action: null, staff: null });
-  const [form, setForm] = useState({ first_name: '', last_name: '', email: '', password: '', phone_number: '', role: 'staff' });
+  const [form, setForm] = useState({ first_name: '', last_name: '', email: '', password: '', phone_number: '', role: 'staff', staff_type: '' });
   const [permTarget, setPermTarget] = useState(null);
   const [userPerms, setUserPerms] = useState([]);
   const [resetTarget, setResetTarget] = useState(null);
@@ -32,14 +34,18 @@ const Staff = () => {
   const load = async () => {
     try {
       const canManagePerms = can('staff_edit_permissions');
-      const [usersRes, rolesRes, permsRes] = await Promise.all([
+      const [usersRes, rolesRes, permsRes, metaRes] = await Promise.all([
         staffApi.list(),
         canManagePerms ? staffApi.getRoles().catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
         canManagePerms ? staffApi.getPermissions().catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
+        staffApi.getMeta().catch(() => ({ data: { data: { staff_types: [], supports_staff_type: false } } })),
       ]);
       setUsers(usersRes.data.data || usersRes.data || []);
       setRoles(rolesRes.data.data || rolesRes.data || []);
       setPermissions(permsRes.data.data || permsRes.data || []);
+      const meta = metaRes.data.data || metaRes.data || {};
+      setStaffTypes(Array.isArray(meta.staff_types) ? meta.staff_types : []);
+      setSupportsStaffType(Boolean(meta.supports_staff_type));
       try { const archRes = await staffApi.listArchived(); setArchived(archRes.data.data || archRes.data || []); } catch { setArchived([]); }
     } catch {} finally { setLoading(false); }
   };
@@ -51,13 +57,13 @@ const Staff = () => {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ first_name: '', last_name: '', email: '', password: '', phone_number: '', role: 'staff' });
+    setForm({ first_name: '', last_name: '', email: '', password: '', phone_number: '', role: 'staff', staff_type: '' });
     setShowModal(true);
   };
 
   const openEdit = (u) => {
     setEditing(u);
-    setForm({ first_name: u.first_name, last_name: u.last_name, email: u.email, password: '', phone_number: u.phone_number || '', role: u.role });
+    setForm({ first_name: u.first_name, last_name: u.last_name, email: u.email, password: '', phone_number: u.phone_number || '', role: u.role, staff_type: u.staff_type || '' });
     setShowModal(true);
   };
 
@@ -66,17 +72,19 @@ const Staff = () => {
     setSaving(true);
     try {
       if (editing) {
-        const payload = { first_name: form.first_name, last_name: form.last_name, email: form.email, phone_number: form.phone_number, role: form.role };
+        const payload = { first_name: form.first_name, last_name: form.last_name, email: form.email, phone_number: form.phone_number, role: form.role, staff_type: supportsStaffType ? form.staff_type || null : undefined };
         await staffApi.update(editing.id, payload);
         toast.success('User updated!');
       } else {
-        await staffApi.create(form);
+        await staffApi.create({ ...form, staff_type: supportsStaffType ? form.staff_type || null : undefined });
         toast.success('User created!');
       }
       setShowModal(false);
       load();
     } catch {} finally { setSaving(false); }
   };
+
+  const staffTypeOptions = Array.from(new Set([...(staffTypes || []), ...(form.staff_type ? [form.staff_type] : [])]));
 
   const handleToggle = async (id) => {
     setConfirmModal({
@@ -299,6 +307,7 @@ const Staff = () => {
                 <th className="table-header">Name</th>
                 <th className="table-header">Email</th>
                 <th className="table-header">Role</th>
+                {supportsStaffType && <th className="table-header">Staff Type</th>}
                 <th className="table-header">Status</th>
                 <th className="table-header text-right">Actions</th>
               </tr>
@@ -319,6 +328,7 @@ const Staff = () => {
                   </td>
                   <td className="table-cell" style={{ color: '#888' }}>{u.email}</td>
                   <td className="table-cell"><span className={roleColor(u.role)}>{toRoleLabel(u.role)}</span></td>
+                  {supportsStaffType && <td className="table-cell" style={{ color: '#ccc' }}>{u.staff_type || '—'}</td>}
                   <td className="table-cell">
                     <span className={u.is_active ? 'badge-success' : 'badge-gray'}>
                       {u.is_active ? 'Active' : 'Inactive'}
@@ -346,7 +356,7 @@ const Staff = () => {
                   </td>
                 </tr>
               ))}
-              {filtered.length === 0 && <tr><td colSpan="5" className="text-center py-8" style={{ color: '#555' }}>No staff found.</td></tr>}
+              {filtered.length === 0 && <tr><td colSpan={supportsStaffType ? 6 : 5} className="text-center py-8" style={{ color: '#555' }}>No staff found.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -377,6 +387,15 @@ const Staff = () => {
                   <option value="manager">Manager</option>
                 </select>
               </div>
+              {supportsStaffType && (
+                <div>
+                  <label className="label">Staff Type Label</label>
+                  <select value={form.staff_type || ''} onChange={(e) => setForm({ ...form, staff_type: e.target.value })} className="input-field" disabled={staffTypeOptions.length === 0}>
+                    <option value="">{staffTypeOptions.length === 0 ? 'No staff types saved in Bar Management yet' : 'Select staff type...'}</option>
+                    {staffTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
+                  </select>
+                </div>
+              )}
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancel</button>
                 <button type="submit" disabled={saving} className="btn-primary flex-1 flex items-center justify-center gap-2">

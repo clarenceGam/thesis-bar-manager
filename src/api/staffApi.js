@@ -4,6 +4,9 @@ export const staffApi = {
   list: () =>
     apiClient.get('/owner/bar/users'),
 
+  getMeta: () =>
+    apiClient.get('/owner/bar/users/meta'),
+
   create: (data) =>
     apiClient.post('/owner/bar/users', data),
 
