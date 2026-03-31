@@ -30,7 +30,9 @@ const ReservationDetail = ({ detail, onClose }) => (
       </div>
       <div className="flex items-center gap-2">
         {detail.payment_status === 'partial' ? (
-          <span className={statusColors.partial}>down paid</span>
+          <span className={statusColors.partial}>Partially Paid</span>
+        ) : detail.payment_status === 'paid' ? (
+          <span className={statusColors.confirmed}>Paid</span>
         ) : (
           <span className={statusColors[detail.status] || 'badge-gray'}>{detail.status}</span>
         )}
@@ -565,7 +567,11 @@ const Reservations = () => {
                   </td>
                   <td className="table-cell">
                     {r.payment_status === 'partial' ? (
-                      <span className={statusColors.partial}>down paid</span>
+                      <span className={statusColors.partial}>Partially Paid</span>
+                    ) : r.payment_status === 'paid' ? (
+                      <span className={statusColors.confirmed}>Paid</span>
+                    ) : r.payment_status === 'cancelled' ? (
+                      <span className={statusColors.cancelled}>Cancelled</span>
                     ) : (
                       <span className={statusColors[r.status] || 'badge-gray'}>{r.status}</span>
                     )}
